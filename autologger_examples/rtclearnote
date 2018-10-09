@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# Copyright (c) 2017, Scott Groel, Clemson University, United States
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this list of conditions
+# and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions
+# and the following disclaimer in the documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+# PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+# TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+# OF THE POSSIBILITY OF SUCH DAMAGE.
+
+#
+# This script provides an example of how to log entries to racktables using an object name
+#   - This will CLEAR the problem state of the object, please see rtmakenote for example to SET
+#     the problem state
+#   - The object name is the field used by the autologger.
+#   - REQUIRES PHP to be installed to encode the string for curl to pass
+#   - Set the SERVER variable to the address of the racktables instance.
+#     + For Example: https://10.0.0.2/racktables OR https://host.fqdn.com/racktables
+#     + Do not include trailing slash
+#
+
+SERVER="<server_address>"
+
+#Requires 2 input parameters, the object you want to assign a note to, and the note itself
+object=$1
+note=$2
+
+usage() {
+    echo -e 'Usage:\n\tMake a note:\n\t\t/root/bin/rtmakenote "<object>" "<message to be logged>"'
+    echo -e '\n\tQuotes are only required around the input field contains a space.'
+    echo -e '\nExample:\n\tServer:\n\t\t/root/bin/rtmakenote dsci001 "replace CPU 1 DIMM 4"'
+    echo -e '\tPDU:\n\t\t/root/bin/rtmakenote "CC-40-L1 11-4-7" "failure, needs to be replaced"'
+    echo -e 'Quotes are required around the object name when the name contains a space.'
+}
+
+exit_state=0
+
+if [ $# -ne 2 ]; then
+    echo 'ERROR: could not parse fields successfully'
+    exit_state=1
+fi
+if [ "${object}" == "" ]; then
+    echo 'ERROR: object name cannot be empty'
+    exit_state=1
+fi
+if [ "${note}" == "" ]; then
+    echo 'ERROR: note cannot be empty'
+    exit_state=1
+fi
+
+if [ ${exit_state} -ne 0 ]; then
+    usage
+    exit 1
+fi
+echo "Setting racktables error state for" ${object}
+
+note_enc=$(php -r 'echo urlencode($argv[1]);' "${note}");
+object_enc=$(php -r 'echo urlencode($argv[1]);' "${object}");
+
+# The end of the curl command "prob=no" is used to set the problem state of the node
+curl "${SERVER}/auto_logger.php?node=${object_enc}&note=${note_enc}&prob=no"

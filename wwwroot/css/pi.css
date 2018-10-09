@@ -1,0 +1,955 @@
+@media print {
+	body table.maintable { font-size: 80%; }
+	.mainheader { display: none; }
+	.searchbox { display: none; }
+	div.menubar { color: #000000; font-weight: bold; }
+	div.menubar a { color: #000000; font-weight: bold; }
+	.tabbar { display: none; }
+	div.greynavbar { border-top-width: 0px; }
+	.greynavbar * a[class=std] { display: none; }
+	.greynavbar * a[class=attn] { display: none; }
+	td.atom.state_Th div a { color: red; font-weight: bold; }
+	td.atom div a { font-weight: normal; }
+}
+
+td.submit {
+	text-align: center;
+}
+
+th.rack {
+	font: bold 12px Verdana, sans-serif;
+}
+
+body {
+  font-family: Arial, Sans-Serif, sans-serif;
+  font-size : small;
+}
+
+table.molecule {
+	width: 200px;
+}
+
+.molecule {
+	font: bold 12px Verdana, sans-serif;
+	border: 1px solid black;
+	border-top: 0px solid black;
+	border-right: 0px solid black;
+	text-align: center;
+}
+
+.molecule th {
+	border-top: 1px solid black;
+	border-right: 1px solid black;
+}
+
+.molecule td {
+	border-top: 1px solid black;
+	border-right: 1px solid black;
+}
+
+.portlet {
+	text-align: center;
+	background-color: #ffffff;
+	border: 1px dashed #522D80;
+	padding: 5px;
+	margin: 5px;
+}
+
+.strong {
+	font-weight: bold;
+}
+
+.hover-history {
+	cursor: help;
+}
+.hover-history.underline {
+	border-bottom: dashed 1px;
+}
+
+.empty {
+	display:inline-block;
+	margin:0;
+	padding:0;
+	background:url(?module=chrome&uri=pix/1x1t.gif) repeat-y 0% 0%;
+	font-size:0;
+	line-height:0;
+}
+
+.dragon {
+	background-color: #000033;
+	text-align: left;
+}
+
+.tdright {
+	text-align: right;
+}
+
+.tdleft {
+	text-align: left;
+}
+.tdcenter {
+	text-align: center;
+}
+.centered {
+	text-align: center;
+}
+table.objectview {
+	width: 100%;
+}
+
+td.pcleft {
+	vertical-align: top;
+	text-align: center;
+}
+
+td.pcright {
+	vertical-align: top;
+	text-align: center;
+}
+
+.msg_error, .msg_success, .msg_warning, .msg_neutral, .msg_200, .msg_300, .msg_500 {
+	text-align: left;
+	border: 1px solid;
+	padding: 2px;
+	margin: 5px;
+	text-align: center;
+}
+
+.msg_error, .msg_500 {
+	background-color: #ffa0a0;
+	border-color: red;
+	font-weight: bold;
+}
+
+.msg_success, .msg_200 {
+	background-color: #a0ffa0;
+	border-color: green;
+	font-weight: bold;
+}
+
+.msg_300, .msg_neutral {
+	background-color: #c0c0c0;
+	border-color: black;
+	font-weight: bold;
+}
+
+.msg_warning {
+	background-color: #ff9966;
+	border-color: #ff3300;
+	font-weight: bold;
+}
+
+th.tagchain {
+	background-color: #a0ffa0;
+	text-align: right;
+}
+
+td.tagchain {
+	text-align: left;
+}
+
+th.sticker {
+	background-color: #ffffa0;
+	text-align: right;
+}
+
+td.tagbox {
+	text-align: left;
+	white-space: nowrap;
+}
+td.tagbox.selected {
+	background-color: #a0ffa0;
+}
+td.tagbox.selected-inverted {
+	background-color: #ffb0b0;
+}
+td.tagbox.inverted {
+	text-decoration: line-through;
+}
+
+td.sticker {
+	text-align: left;
+}
+
+.widetable th {
+	padding-left: 5px;
+	padding-right: 5px;
+}
+
+.widetable td {
+	border-top: 1px solid #a0a0a0;
+	padding-left: 5px;
+	padding-right: 5px;
+}
+
+.row_even {
+	background-color: #d0d0d0;
+}
+
+.row_odd {
+	background-color: #e8e8e8;
+}
+
+.row_even.has_problems {
+	background-color: #ffa0a0;
+}
+
+.row_odd.has_problems {
+	background-color: #fbbcbc;
+}
+
+.row_error {
+	background-color: #ffa0a0;
+}
+
+tr.has_problems_even {
+	background-color: #ffa0a0;
+}
+
+tr.has_problems_odd {
+	background-color: #ffd0d0;
+}
+
+/* In the zebra table the 1st TR always contains TH, which have a different
+ * style and are exempt from the zebra pattern. In this sense the 2nd TR
+ * where the TDs start is considered "odd" and the 3rd -- "even" and so on.
+ */
+table.zebra tbody tr:nth-child(2n+3):not(.highlight) {
+	background: #d0d0d0;
+}
+table.zebra tbody tr:nth-child(2n):not(.highlight) {
+	background: #e8e8e8;
+}
+table.zebra tbody table:not(.zebra) tr {
+	background: inherit !important;
+}
+
+/* This variant results in the same pattern for a table that has no TH row
+ * at the top.
+ */
+table.zebra0 tbody tr:nth-child(2n+1):not(.highlight) {
+	background: #e8e8e8;
+}
+table.zebra0 tbody tr:nth-child(2n):not(.highlight) {
+	background: #d0d0d0;
+}
+table.zebra0 tbody table:not(.zebra0) tr {
+	background: inherit !important;
+}
+
+table.cooltable {
+	border: 1px solid black;
+}
+
+table.cooltable th {
+	border-bottom: 1px solid black;
+}
+
+th.vert_th {
+	border-right: 1px solid black;
+}
+
+tr.hl {
+	background-color: #505050;
+	font-weight: bold;
+}
+
+.description {
+	font-size: 9px;
+}
+
+.trok {
+	background-color: #80FF80;
+}
+
+.trwarning {
+	background-color: #FFFF80;
+}
+
+.trerror {
+	background-color: #FF8080;
+}
+
+.trbusy {
+	background-color: #D0D0FF;
+}
+
+.trnull {
+	background-color: #c0c0c0;
+}
+
+div.greeting {
+	color: white;
+	text-align: right;
+}
+
+/* Contents of original static.css end here, the rest is pi.css */
+
+body {
+  margin: 0px;
+  background-attachment : fixed;
+  background-color : #FCFCFC;
+}
+/* collapse space between headings, and where paragraph follows heading */
+hr {
+  height : 1px;
+}
+
+a {
+	font-family: Verdana, sans-serif;
+	color: #3c78b5;
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+/* anchors  must be defined in order (link,visited,active,hover)
+   to avoid unpredictable results */
+
+input {
+	background-color : #f0f0f0;
+	border-width : 1px;
+	border-style : solid;
+	border-color : #000000;
+}
+input [type="text"] {
+}
+input[type=checkbox] , input[type=radio] {
+	border-style: none;
+}
+input.icon {
+	background-color : transparent;
+	border-width: 0px;
+}
+textarea {
+	background-color : #f0f0f0;
+	border-width : 1px;
+	border-style : solid;
+	border-color : #000000;
+}
+
+.maintable {
+	width: 100%;
+	height: 100%;
+}
+
+/* main header line (black one) */
+.mainheader {
+	background-color: #522D80;
+	color: white;
+	padding: 5px;
+}
+.mainheader a {
+	color: #FFFFFF;
+	font-family: Arial,Sans-Serif,sans-serif;
+}
+
+/* search and path bar (blue one) */
+.menubar {
+	padding: 5px 3px;
+	font-size: 17px;
+	line-height: 20px;
+	background-color : #F66733;
+
+	font-family: Verdana, arial, sans-serif;
+	color : #ffffff;
+}
+
+.menubar a {
+	font-family: Verdana, arial, sans-serif;
+	color : #ffffff;
+	text-decoration : none;
+}
+
+.menubar a:hover {
+	text-decoration: underline;
+}
+
+/* tab bar */
+.greynavbar {
+	background-color: #86898C;
+	border-top: 1px solid #86898C;
+	margin-top: 0px;
+}
+
+#foldertab {
+padding: 3px 0px 3px 8px;
+margin-left: 0;
+border-bottom: 1px solid #3c78b5;
+font: bold 11px Verdana, sans-serif;
+}
+
+#foldertab li {
+list-style: none;
+margin: 0;
+display: inline;
+}
+
+#foldertab li a {
+padding: 3px 0.5em;
+margin-left: 3px;
+border: 1px solid #86898C;
+text-decoration: none;
+}
+
+/* Standard tab, inactive. */
+#foldertab li a.std {
+border-bottom: none;
+background: #522D80;
+}
+#foldertab li a.std:link { color: white; }
+#foldertab li a.std:visited { color: white; }
+#foldertab li a.std:hover {
+color: white;
+background: #3A4958;
+border-color: #86898C;
+}
+
+/* Standard tab, selected. */
+#foldertab li a.current {
+background: white;
+border-bottom: 1px solid white;
+color: black;
+}
+#foldertab li a.current:link { color: black; }
+#foldertab li a.current:visited { color: black; }
+#foldertab li a.current:hover {
+background: white;
+border-bottom: 1px solid white;
+color: black;
+}
+
+/* "Attention" tab, inactive. */
+#foldertab li a.attn {
+border-bottom: none;
+background: #ffa500;
+border-color: #ffa500;
+}
+#foldertab li a.attn:link { color: white; }
+#foldertab li a.attn:visited { color: white; }
+#foldertab li a.attn:hover {
+color: white;
+background: #ff8c00;
+border-color: #ff8c00;
+}
+
+.rack {
+	font: bold 12px Verdana, sans-serif;
+	border: 1px solid black;
+	border-top: 0px solid black;
+	border-right: 0px solid black;
+	text-align: center;
+}
+
+.rack th {
+	border-top: 1px solid black;
+	border-right: 1px solid black;
+}
+
+.rack td {
+	border-top: 1px solid black;
+	border-right: 1px solid black;
+}
+
+.rack a {
+	font: bold 10px Verdana, sans-serif;
+	color: #000;
+	text-decoration: none;
+}
+
+.rack a:hover {
+	text-decoration: underline;
+}
+
+.rackspace {
+}
+
+.rackspace img {
+	border: 0;
+	display: inline;
+	margin: 0;
+	padding: 0;
+}
+
+.rackspace h2 {
+	font: bold 25px Verdana, sans-serif;
+}
+
+.rackspace h3 {
+	font: bold 20px Verdana, sans-serif;
+}
+
+.rackspace a {
+	color: #000;
+	text-decoration: none;
+}
+
+.rackspace a:hover {
+	color: #000;
+	text-decoration: underline;
+}
+
+.mainmenu a {
+	color: #522D80;
+	text-decoration: none;
+}
+
+.mainmenu a:hover {
+	text-decoration: underline;
+}
+
+.mainmenu img {
+	border: 0px;
+}
+
+.visible {
+	display: block;
+}
+
+.invisible {
+	display: none;
+}
+
+.allobjects {
+	vertical-align: top;
+}
+
+.allobjects select {
+        background-color : #f0f0f0;
+        border-width : 1px;
+        border-style : solid;
+        border-color : #000000;
+}
+
+div.commentblock {
+	white-space: pre-wrap;
+	text-align: left;
+	font-family: monospace;
+}
+
+.port_connected_none {
+	background-color: #bfffbf;
+}
+
+.port_connected_single {
+	background-color: #00ff00;
+}
+
+.port_connected_multi {
+	background-color: #ffff00;
+}
+
+.port_notconnect {
+	background-color: #c0c0c0;
+}
+
+.port_disabled {
+	background-color: #606060;
+}
+
+.port_unknown {
+	background-color: #ff0000;
+}
+
+.validation-error {
+	border:2px solid red;
+}
+
+.validation-success {
+	border:2px solid green;
+}
+
+.sparenetwork {
+	color: silver;
+}
+
+.slbconf {
+	text-align: left;
+	white-space: pre;
+	font-family: monospace;
+}
+
+.dashed {
+	border: 1px dashed gray;
+	padding: 0.5em;
+	overflow: auto;
+}
+
+table.slbcell {
+	border: 1px;
+	border-style: outset;
+	width: 100%;
+	height: 100%;
+	empty-cells: hide;
+}
+
+table.slbcell td {
+	border-top: 0px;
+	text-align: center;
+}
+
+table.vscell {
+	empty-cells: show;
+}
+
+table.vscell td {
+	text-align: left;
+}
+
+div.tagselector {
+	overflow: auto;
+	max-height: 400px;
+	min-width: 150px;
+	background-color : #f0f0f0;
+	border-width : 1px;
+	border-style : solid;
+	border-color : #000000;
+}
+
+/* prevent tag selector in a "cooltable" against a series of horizintal lines */
+div.tagselector td {
+	border-width: 0px;
+}
+
+.rsvtext {
+	font-style: italic;
+}
+
+.edit-btn {
+	display: none;
+	cursor: pointer;
+}
+
+.tagtree.compact td {
+	padding-left: 0px !important;
+}
+
+.tagtree tr.separator td {
+	border-top: 2px solid gray;
+}
+
+a.toggleTreeMode {
+}
+
+div.vlan {
+	margin-left: 15px;
+}
+
+.slbcell div.vlan {
+	float: right;
+}
+
+.btns-8021q-sync li {
+	display: inline;
+	list-style-type: none;
+	padding-right: 40px;
+}
+.btns-8021q-sync li form {
+	display: inline;
+}
+
+.border_highlight {
+	border: solid 4px lime !important;
+}
+
+/*this style is used for <a>s that do not contain href (anchors) to make them look like plain text*/
+.nolink {
+	text-decoration: none;
+	color: black;
+	font-family: Arial,Sans-Serif,sans-serif;
+	font-size: small;
+}
+.nolink:hover {
+	text-decoration: none;
+}
+
+/*This class controls popup switch info. It should be on the element that contains portname in plain text.*/
+.interactive-portname {
+	cursor: default;
+}
+
+/*item to the left of portname (link indicator)*/
+.port-link {
+	margin-right: 10px;
+}
+
+/*item to the right of portname (mac count)*/
+.mac-count {
+	display: inline;
+	margin-left: 3px;
+	font-size: 80%;
+}
+
+/*general class for popup div*/
+.popup-box {
+	display: none;
+	border: 1px solid #000000;
+	background: #FFFFFF;
+	padding: 0px 5px;
+	z-index: 999;
+}
+
+/*popup div with MAC list*/
+.mac-list {
+	font-family: monospace;
+	overflow: auto;
+	max-height: 200px;
+	min-width: 200px;
+}
+
+/*popup div with port configuration lines*/
+.port-config {
+	display: none;
+	border: 1px solid #000000;
+	background-color: #FFFFFF;
+	padding: 5px;
+	font-family: monospace;
+	white-space: pre;
+}
+
+/*header line in port conf popup div*/
+.port-config .line-header {
+	font-weight: bold;
+	font-size: 105%;
+}
+
+/*8021q line in port conf popup div*/
+.port-config .line-8021q {
+	color: #9b9b9b
+}
+
+/*other lines in port conf popup div*/
+.port-config .line-other {
+	color: #f52328
+}
+
+/*link to popup menu (...) showed on td hover*/
+.port-popup {
+	margin-left: 3px;
+	font-family: Arial,Sans-Serif,sans-serif;
+}
+
+.l2address {
+	font-family: monospace;
+}
+
+/*common rack item attributes*/
+.atom {
+	text-align: center;
+	font: bold 10px Verdana, sans-serif;
+}
+.state_F   { background-color: #8fbfbf; }
+.state_A   { background-color: #bfbfbf; }
+.state_U   { background-color: #bf8f8f; }
+.state_T   { background-color: #408080; }
+.state_Th  { background-color: #80ffff; }
+.state_Tw  { background-color: #f00; }
+.state_Thw { background-color: #ff8080; }
+
+/* highlighting for drag selection */
+.atom.ui-selecting { 
+	background-color: #E2D087 !important; 
+}
+
+/* link with single image as body */
+a.img-link {
+	vertical-align: bottom;
+}
+
+/* text label with rackcode (object-rackspace tab) */
+.filter-text {
+	font-family: "Courier New",Courier,monospace;
+}
+
+/* VLAN lists diff formatting (8021Q Ports and 8021Q Sync pages) */
+.vlan-diff {
+	font-weight: bold;
+	float: right;
+}
+.vlan-diff.diff-add {
+	color: green;
+}
+.vlan-diff.diff-rem {
+	color: #A00000;
+}
+
+/* link to host via telnet or ssh */
+.mgmt-link {
+	background: url("?module=chrome&uri=pix/kterm-16x16.png") no-repeat scroll right center transparent;
+	padding-right: 20px;
+	font-family: monospace;
+	color: black;
+}
+
+/* for OptionTree */
+select.vertical {
+	display: block;
+}
+
+/* quick links within the main header line */
+ul.qlinks {
+	display: inline;
+	list-style: none;
+}
+ul.qlinks li {
+	display: inline;
+	margin: 0 2em;
+}
+ul.qlinks li a {
+	font-size: 14px;
+	font-weight: bold;
+	font-family: Verdana,arial,sans-serif;
+}
+
+/* checkboxes in the MyAccount page */
+ul.qlinks-form {
+	list-style: none;
+	padding: 0;
+}
+
+/* basic list - no bullets nor indentation */
+ul.uflist {
+	list-style-type: none;
+	margin: 0;
+	padding: 0;
+}
+ul.uflist li {
+	margin: 0;
+	padding: 5px 0 5px 0;
+}
+
+a.noclick {
+	color: #757575;
+}
+
+.highlight {
+	background-color: #A0FFA0;
+}
+
+.net-usage.pending {
+	cursor: pointer;
+	border-bottom: dashed 1px;
+	display: inline;
+	padding: 0px 5px;
+}
+.slbcell .net-usage {
+	float: right;
+	margin-left: 15px;
+}
+
+.net-usage .title {
+	display: block;
+}
+
+.aac-right {
+	font-weight: bold;
+	margin-left: 1em;
+}
+
+.aac-left {
+	font-weight: bold;
+	margin-right: 0.5em;
+}
+
+.logentry {
+	text-align: left;
+	white-space: pre-wrap;
+	font-family: monospace;
+	font-style: italic;
+}
+
+.varname {
+	font-family: "Courier New",Courier,monospace;
+	font-weight: bold;
+}
+
+.vardescr {
+	font-style: italic;
+	margin: 0 0;
+	font-size: 90%;
+}
+
+.slb-checks {
+	margin: 0px;
+	padding: 0px 2em;
+	list-style: square;
+}
+
+.slb-checks li {
+	margin: 5px 0px;
+	white-space: pre;
+}
+
+.slb-checks li.disabled {
+	color: #999999;
+	list-style-image: url(?module=chrome&uri=pix/unchecked.png)
+}
+
+.slb-checks li.disabled * {
+	color: #999999;
+}
+
+.slb-checks li.enabled {
+	list-style-image: url(?module=chrome&uri=pix/checked.png);
+}
+
+.slb-checks.editable li:hover {
+	list-style-image: url(?module=chrome&uri=pix/pencil-icon.png);
+	cursor: pointer;
+}
+
+.slb-checks.editable li a {
+	cursor: pointer;
+}
+
+.slb-checks.editable li * {
+	cursor: auto;
+}
+
+.slb-checks li form {
+	display: none;
+}
+
+.slb-prio {
+	border: 1px solid #aaaaaa;
+	padding: 0px 2px;
+	margin-left: 1em;
+}
+
+.slbconf-btn {
+	border: 1px solid #aaaaaa;
+	font-size: 12px;
+	font-weight: bold;
+	height: 10px;
+	line-height: 6px;
+
+	display: inline-block;
+	padding: 0px 2px;
+	margin-left: 1em;
+	position: relative;
+	top: -3px;
+}
+
+.popup-box h1 {
+	background-color: #3C78B5;
+	color: white;
+	text-align: center;
+	font-family: verdana, tahoma;
+	font-weight: normal;
+	padding: 0px;
+	margin: 0px -5px;
+	margin-top: 0.5em;
+	font-size: 12px;
+	line-height: 1.5em;
+}
+
+div.popupbar {
+	background-color: #f0f0f0;
+	border: 1px solid #3c78b5;
+	padding: 10px;
+	height: 100%;
+	text-align: center;
+	margin: 5px;
+}

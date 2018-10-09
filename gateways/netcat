@@ -1,0 +1,63 @@
+#!/usr/bin/perl
+
+# This file is a part of RackTables, a datacenter and server room management
+# framework. See accompanying file "COPYING" for the full copyright and
+# licensing information.
+
+use strict;
+use Getopt::Long;
+use POSIX ":sys_wait_h";
+
+# fetch command-line parameters
+my $op_help;
+my $op_port = 23;
+my $op_ncbin = 'nc';
+my $op_timeout = 30;
+GetOptions (
+    'h' => \$op_help,
+    'port|p:i' => \$op_port,
+    'ncbin|b:s' => \$op_ncbin,
+    'timeout|w:i' => \$op_timeout,
+);
+if ($op_help) {
+    &display_help;
+    exit;
+}
+my $op_host = $ARGV[0];
+defined $op_host or die "ERROR: missing hostname argument (-h for help)";
+
+sub display_help {
+    print <<END;
+netcat wrapper script for RackTables
+Usage:
+$0 <hostname> [-b </path/to/netcat/binary>] [-p <port>] [--connect-timeout=<seconds>]
+ -p, --port             TCP port number to connect to (defaults to 23)
+ -b, --ncbin            Full path to netcat binary (defaults to $op_ncbin)
+ -w, --connect-timeout  netcat timeout (defaults to $op_timeout)
+
+END
+}
+
+my @params = ('-w', $op_timeout, '-v');
+
+pipe (RD, WR);
+my $child_pid = fork();
+defined $child_pid or die "fork: $!";
+if (! $child_pid) {
+	close RD;
+	open (STDERR, ">&WR") or die "open: $!";
+	exec ($op_ncbin, $op_host, $op_port, @params) or die "exec $op_ncbin: $!";
+}
+close WR;
+
+# suppress error output if nc returns 0
+my $error_buff = '';
+while (<RD>) {
+	$error_buff .= $_;
+}
+waitpid $child_pid, 0;
+if ($?) {
+	print STDERR $error_buff;
+	$? = $? >> 8;
+	exit $? ? $? : 1;
+}

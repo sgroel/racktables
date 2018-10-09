@@ -1,0 +1,25 @@
+language: php
+
+git:
+  quiet: true
+  depth: 3
+
+php:
+ - 5.5
+ - 5.6
+ - 7.0
+ - 7.1
+
+matrix:
+  fast_finish: true
+
+services:
+ - mysql
+
+before_script:
+ - ./tests/travis_setup_mysql.sh racktables_unittest racktables travistest
+
+script:
+ - ./tests/express.sh
+ - mysql -u racktables -ptravistest racktables_unittest < scripts/init-sample-racks.sql
+ - DESTDIR=/tmp make install
