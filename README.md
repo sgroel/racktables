@@ -232,3 +232,78 @@ To keep this short, only the objects changed will appear here with their default
    ```
    .state_Tw  { background-color: #f00; }
    ```
+
+### interface.php
+This file is located in wwwroot/inc/. This file is modified to tweak the way racks are drawn 
+in racktables. These changes include modifying the width of each column in the rack view
+and changing the headers of the columns to be "Front, Interior, Left".
+
+   - Change the function renderRack. There is one section we are concerned with, see below for
+     the modified code:
+   ```
+   echo "</h2></td></tr></table>\n";
+   echo "<table class=rack border=0 cellspacing=0 cellpadding=1>\n";
+   echo "<tr><th width='10%'>&nbsp;</th><th width='30%'>Left</th>";
+   echo "<th width='30%'>Interior</th><th width='30%'>Right</th></tr>\n";
+   ```
+   Original Code:
+   ```
+   echo "</h2></td></tr></table>\n";
+   echo "<table class=rack border=0 cellspacing=0 cellpadding=1>\n";
+   echo "<tr><th width='10%'>&nbsp;</th><th width='20%'>Front</th>";
+   echo "<th width='50%'>Interior</th><th width='20%'>Back</th></tr>\n";
+   ```
+   - Change the function randerGridForm. This is the grid displayed when adding\removing
+     objects from the rack. Modified code:
+   ```
+   echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '0', ${rackData['height']})\">Left</a></th>";
+   echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '1', ${rackData['height']})\">Interior</a></th>";
+   echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '2', ${rackData['height']})\">Right</a></th></tr>\n";
+   ```
+   Original Code:
+   ```
+   echo "<th width='20%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '0', ${rackData['height']})\">Front</a></th>";
+   echo "<th width='50%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '1', ${rackData['height']})\">Interior</a></th>";
+   echo "<th width='20%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '2', ${rackData['height']})\">Back</a></th></tr>\n";
+   ```
+   - Change the function renderRackSpaceForObject. This function is fairly self explanatory.
+     This will draw the rackspace when a specific object is selected. Similar changes are made
+     to the other functions listed thus far. Modified code:
+   ```
+   echo "<tr><th width='10%'>&nbsp;</th>";
+   echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '0', ${rackData['height']})\">Left</a></th>";
+   echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '1', ${rackData['height']})\">Interior</a></th>";
+   echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '2', ${rackData['height']})\">Right</a></th></tr>\n";
+   renderAtomGrid ($rackData, $is_ro);
+   echo "<tr><th width='10%'>&nbsp;</th>";
+   echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '0', ${rackData['height']})\">Left</a></th>";
+   echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '1', ${rackData['height']})\">Interior</a></th>";
+   echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '2', ${rackData['height']})\">Right</a></th></tr>\n";
+   echo "</table>\n<br>\n";
+   ```
+   Original code:
+   ```
+   echo "<tr><th width='10%'>&nbsp;</th>";
+   echo "<th width='20%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '0', ${rackData['height']})\">Front</a></th>";
+   echo "<th width='50%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '1', ${rackData['height']})\">Interior</a></th>";
+   echo "<th width='20%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '2', ${rackData['height']})\">Back</a></th></tr>\n";
+   renderAtomGrid ($rackData, $is_ro);
+   echo "<tr><th width='10%'>&nbsp;</th>";
+   echo "<th width='20%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '0', ${rackData['height']})\">Front</a></th>";
+   echo "<th width='50%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '1', ${rackData['height']})\">Interior</a></th>";
+   echo "<th width='20%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '2', ${rackData['height']})\">Back</a></th></tr>\n";
+   echo "</table>\n<br>\n";
+   ```
+   - Change the function renderMolecule. Modified code:
+   ```
+   echo "<tr><th width='10%'>&nbsp;</th><th width='30%'>Left</th><th width='30%'>Interior</th><th width='30%'>Right</th></tr>\n";
+   ```
+   Original Code:
+   ```
+   echo "<tr><th width='10%'>&nbsp;</th><th width='20%'>Front</th><th width='50%'>Interior</th><th width='20%'>Back</th></tr>\n";
+   ```
+
+These changes mostly amount to searching for any instance of Front of Back in the interface.php file
+and changing Front to Left and Back to Right. The other changes to be made are the width percentages
+to all be 30% as opposed to 20%,50%,20% in the original implementation. This is a cosmetic only change
+and does not change how data is stored or entered into the database.
