@@ -20,11 +20,27 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#
+# README: To configure this application, please configure the config.ini.php file located by default in
+# the autologger directory. This directory can be moved outside of the root web directory for security
+# purposes. Please ensure the correct unix permissions and owner are applied. It is recommended to use
+# 440 for permissions once configured. If relocating the config.ini.php file from the default directory,
+# it is required that you update the path of the file. This can be done by updating the path in the 
+# variable $config_file. If intending to leave config.ini.php in its default location, additional
+# protection should be used such as preventing access to this file by using .htaccess. By default, the
+# file is protected by wrapping the contents in php which by default, just terminates when loaded.
+#
+
+
+
+#Read in configuration from file, UPDATE THIS IF MOVING THE CONFIG FROM DEFAULT LOCATION
+$srvconfig = parse_ini_file('autologger/config.ini.php');
+
 #Server Parameters
-$servername = "<server>";
-$username = "<username of DB>";
-$password = "<password>";
-$dbname = "<racktables DB name>";
+$servername = $srvconfig['server'];
+$username = $srvconfig['username'];
+$password = $srvconfig['password'];
+$dbname = $srvconfig['dbname'];
 
 #node = target node to add note to
 #note = note that is to be attributed to the note

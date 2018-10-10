@@ -3,7 +3,7 @@ Racktables is a datacenter management solution that provides an SQL database
 backend along with a graphical front end to provide detailed views of your 
 rackspace and equipment. This documentation is given as a reference to deploy
 RackTables on a RHEL based 7.0 Linux distribution. The original documentation
-can be found at the respective links at [project's web-site](http://racktables.org).
+can be found at the respective links at the [project's web-site](http://racktables.org).
 
 # How This Clone is Different
 This clone is for use by Clemson University Information Technology. It has been
@@ -141,7 +141,6 @@ planned in the future include spare parts inventory, better handling of breakout
 potential other changes. List of changes are below:
    1. Color Scheme.
    2. Rack layout changed from "Front, Interior, and Back" to "Left, Interior, and Right".
-   3. Framework for AutoLogger (more about that later).
 
 ## How to change color scheme
 For this guide we will be assuming you are starting at the top level of the extracted files from
@@ -233,6 +232,11 @@ To keep this short, only the objects changed will appear here with their default
    .state_Tw  { background-color: #f00; }
    ```
 
+## Changing the Rack View
+In this section we will discuss how to change the appearance of the rack view in
+racktables. We will be mainly focusing on changing title text to fit a model more
+usable for datacenter environments employing high density compute resources.
+
 ### interface.php
 This file is located in wwwroot/inc/. This file is modified to tweak the way racks are drawn 
 in racktables. These changes include modifying the width of each column in the rack view
@@ -307,3 +311,9 @@ These changes mostly amount to searching for any instance of Front of Back in th
 and changing Front to Left and Back to Right. The other changes to be made are the width percentages
 to all be 30% as opposed to 20%,50%,20% in the original implementation. This is a cosmetic only change
 and does not change how data is stored or entered into the database.
+
+# Plugins
+By default, this clone of RackTables comes with the AutoLogger framework, and CSV import capabilities.
+The CSV import plugin was originally written by Erik Ruiter, SURFsara BV, Amsterdam, The Netherlands
+in 2014. The original copy of this plugin can be found (here)[https://github.com/sara-nl/racktables-contribs/blob/master/csv_import.php]
+This function has been expanded to add some additional capabilities. 
