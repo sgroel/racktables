@@ -69,9 +69,6 @@ function trigger_liveports ()
 	return '';
 }
 
-// SNMP port finder tab trigger. At the moment we decide on showing it
-// for pristine switches/PDUs only. Once a user has begun
-// filling the data in, we stop showing the tab.
 function trigger_snmpportfinder ()
 {
 
@@ -113,6 +110,8 @@ function trigger_ip ()
 
 function trigger_natv4 ()
 {
+	if (getNATv4CountForObject (getBypassValue()) > 0)
+		return 'std';
 	if (!count (getObjectIPv4AllocationList (getBypassValue())))
 		return '';
 	return considerConfiguredConstraint (spotEntity ('object', getBypassValue()), 'IPV4NAT_LISTSRC') ? 'std' : '';
@@ -137,12 +136,6 @@ function trigger_passwdchange ()
 {
 	global $user_auth_src, $remote_username;
 	return ($user_auth_src == 'database' || 1 === getUserIDByUsername ($remote_username)) ? 'std' : '';
-}
-
-function trigger_localreports ()
-{
-	global $localreports;
-	return count ($localreports) ? 'std' : '';
 }
 
 function trigger_file_editText ()

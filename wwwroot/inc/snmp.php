@@ -726,7 +726,6 @@ $iftable_processors['nexus-any-10000SFP+'] = array
 	'try_next_proc' => FALSE,
 );
 
-
 $iftable_processors['nexus-any-QSFP-split'] = array
 (
 	'pattern' => '@^Ethernet(([[:digit:]]+)/([[:digit:]]+)/([[:digit:]]+))$@',
@@ -1401,6 +1400,15 @@ $iftable_processors['hce-any-SFP'] = array
 	'try_next_proc' => FALSE,
 );
 
+$iftable_processors['hce-any-SFP28'] = array
+(
+	'pattern' => '@^25GE([[:digit:]]+/[[:digit:]]+/)([[:digit:]]+)$@',
+	'replacement' => '25ge\\1\\2',
+	'dict_key' => '16-1592',
+	'label' => '\\2',
+	'try_next_proc' => FALSE,
+);
+
 $iftable_processors['hce-any-QSFP-split'] = array
 (
 	'pattern' => '@^40GE([[:digit:]]+/[[:digit:]]+/)([[:digit:]]+):([[:digit:]]+)$@',
@@ -1419,12 +1427,11 @@ $iftable_processors['hce-any-QSFP'] = array
 	'try_next_proc' => FALSE,
 );
 
-// FIXME: use SFP28:25GbE instead of SFP+:10GbE
 $iftable_processors['hce-any-QSFP28-split'] = array
 (
 	'pattern' => '@^100GE([[:digit:]]+/[[:digit:]]+/)([[:digit:]]+):([[:digit:]]+)$@',
 	'replacement' => '100ge\\1\\2:\\3',
-	'dict_key' => '9-1084',
+	'dict_key' => '16-1592',
 	'label' => '\\2:\\3',
 	'try_next_proc' => FALSE,
 );
@@ -1887,15 +1894,51 @@ $iftable_processors['tplink-any-100T'] = array
 	'dict_key' => 24,
 	'label' => '\\1',
 	'try_next_proc' => FALSE,
-); 
+);
 
-$iftable_processors['tplink-any-1000T'] = array
+$iftable_processors['tplink-sg-stackable-any-1000T'] = array
 (
 	'pattern' => '@^.+ Port on unit .+ port ([[:digit:]]+)$@',
 	'replacement' => 'g\\1',
 	'dict_key' => 24,
 	'label' => '\\1',
 	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['tplink-sg-1000T'] = array
+(
+	'pattern' => '@^port ([[:digit:]]+): Gigabit Copper$@',
+	'replacement' => 'g\\1',
+	'dict_key' => 24,
+	'label' => '\\1',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['tplink-jetstream-any-1000T'] = array
+(
+	'pattern' => '@^(gigabitEthernet\s|Gi)(\d+)/(\d+)/(\d+) : copper$@',
+	'replacement' => 'gi\\2/\\3/\\4',
+	'dict_key' => 24,
+	'label' => '\\4',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['tplink-jetstream-any-10000SFP+'] = array
+(
+	'pattern' => '@^Te(\d+)/(\d+)/(\d+) : fiber$@',
+	'replacement' => 'te\\1/\\2/\\3',
+	'dict_key' => '9-1084',
+	'label' => '\\3',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['tplink-jetstream-any-1000SFP'] = array
+(
+    'pattern' => '@^(gigabitEthernet\s|Gi)(\d+)/(\d+)/(\d+) : fiber@',
+    'replacement' => 'te\\2/\\3/\\4',
+    'dict_key' => '4-1077',
+    'label' => '\\4',
+    'try_next_proc' => FALSE,
 );
 
 $iftable_processors['motorola-rfs-any-1000T'] = array
@@ -1950,6 +1993,33 @@ $iftable_processors['dlink-any-1000T'] = array
 	'dict_key' => '1-24',
 	'label' => '\\1',
 	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['Dlink-3028-100TX'] = array
+(
+     'pattern' => '@^D-Link DES-.+ R.+ Port (\d+)$@',
+     'replacement' => 'e\\1',
+     'dict_key' => 19,
+     'label' => '\\1',
+     'try_next_proc' => FALSE,
+);
+
+$iftable_processors['Dlink-3028-25-to-28-1000T'] = array
+(
+     'pattern' => '@^D-Link DES-.+ R.+ Port (25|26|27|28)$@',
+     'replacement' => 'g\\1',
+     'dict_key' => 24,
+     'label' => '\\1',
+     'try_next_proc' => FALSE,
+);
+
+$iftable_processors['Dlink-3028-25-to-26-Combo'] = array
+(
+     'pattern' => '@^D-Link DES-.+ R.+ Port (25|26)$@',
+     'replacement' => 'g\\1',
+     'dict_key' => '4-1077',
+     'label' => 'G\\1',
+     'try_next_proc' => TRUE,
 );
 
 $iftable_processors['dlink-rmon-any-100TX'] = array
@@ -2141,6 +2211,123 @@ $iftable_processors['ubiquiti-chassis-51-to-52-1000SFP'] = array
 	'dict_key' => '4-1077',
 	'label' => '\\2',
 	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['procurve-25-to-28-1000SFP'] = array
+(
+	'pattern' => '@^GigabitEthernet1/0/(25|26|27|28)$@',
+	'replacement' => '\\1',
+	'dict_key' => '4-1077',
+	'label' => '\\1',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['catalyst-chassis-any-TenGb'] = array
+(
+	'pattern' => '@^Ten-GigabitEthernet([[:digit:]]+/)([[:digit:]]+/)([[:digit:]]+)$@',
+	'replacement' => 'Tgi\\1\\2\\3',
+	'dict_key' => '9-1084',
+	'label' => '\\3',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['catalyst-chassis-FortyGigE'] = array
+(
+	'pattern' => '@^FortyGigE([[:digit:]]+/)([[:digit:]]+/)(49|50|51|52)$@',
+	'replacement' => 'FGi\\1\\2\\3',
+	'dict_key' => '10-1588',
+	'label' => '\\3',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['procurve-51-to-52-10000SFP+'] = array
+(
+	'pattern' => '@^(Ten-GigabitEthernet1/0/(51|52))$@',
+	'replacement' => '\\1',
+	'dict_key' => '9-1084',
+	'label' => '\\1',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['procurve-49-to-50-10GBase-T'] = array
+(
+	'pattern' => '@^Ten-GigabitEthernet1/0/(49|50)$@',
+	'replacement' => '\\1',
+	'dict_key' => '1-1642',
+	'label' => '\\1',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['procurve-any-1000T'] = array
+(
+	'pattern' => '@^GigabitEthernet1/0/(\d+)$@',
+	'replacement' => '\\g1',
+	'dict_key' => 24,
+	'label' => '\\1',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['procurve-8ports-1000T'] = array
+(
+	'pattern' => '@^Port:  (\d+) Gigabit - Level$@',
+	'replacement' => '\\1',
+	'dict_key' => 24,
+	'label' => '\\1',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['procurve-1810-1000T'] = array
+(
+	'pattern' => '@^Port: (\d+) Gigabit - Level$@',
+	'replacement' => '\\1',
+	'dict_key' => 24,
+	'label' => '\\1',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['procurve-1810-1000SFP'] = array
+(
+	'pattern' => '@^Port: (\d+) SFP - Level$@',
+	'replacement' => '\\1',
+	'dict_key' => '4-1077',
+	'label' => '\\1',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['procurve-1810-23-to-24-COMBO'] = array
+(
+	'pattern' => '@^Port: (23|24) Gigabit - Level$@',
+	'replacement' => '\\1',
+	'dict_key' => '4-1077',
+	'label' => '\\1',
+	'try_next_proc' => TRUE,
+);
+
+$iftable_processors['cisco-25-to-28-1000SFP'] = array
+(
+	'pattern' => '@^GigabitEthernet1/1/(25|26|27|28)$@',
+	'replacement' => 'gi1/1/\\1',
+	'dict_key' => '4-1077',
+	'label' => 'G\\1',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['nexus-any-10000T'] = array
+(
+	'pattern' => '@^Ethernet([[:digit:]]/[[:digit:]]+)$@',
+	'replacement' => 'e\\1',
+	'dict_key' => '1-1642',
+	'label' => '\\1',
+	'try_next_proc' => FALSE,
+);
+
+$iftable_processors['procurve-25-to-28-1000SFPcombo'] = array
+(
+	'pattern' => '@^GigabitEthernet1/0/(25|26|27|28)$@',
+	'replacement' => '\\1',
+	'dict_key' => '4-1077',
+	'label' => '\\1',
+	'try_next_proc' => TRUE,
 );
 
 global $known_switches;
@@ -3505,6 +3692,12 @@ $known_switches = array // key is system OID w/o "enterprises" prefix
 		'text' => 'J9728A: 44 RJ-45/10-100-1000T + 4 combo-gig',
 		'processors' => array ('procurve-45-to-48-combo-1000SFP', 'procurve-chassis-1000T'),
 	),
+	'43.1.8.72' => array
+	(
+		'dict_key' => 2176,
+		'text' => '1910G 24-port: 24 RJ-45/10-100-1000T(X) + 4 SFP combo-gig',
+		'processors' => array ('3com-25-to-26-1000SFP', '3com-27-to-28-1000SFP', '3com-any-1000T'),
+	),
 	'43.1.16.4.3.8' => array
 	(
 		'dict_key' => 780,
@@ -3570,6 +3763,12 @@ $known_switches = array // key is system OID w/o "enterprises" prefix
 		'dict_key' => 1810,
 		'text' => 'PF5240: 48 RJ-45/10-100-1000T(X) + 4 SFP+',
 		'processors' => array ('nec-any-1000T', 'nec-any-SFP+', 'nec-mgmt'),
+	),
+	'171.10.63.6' => array
+	(
+		'dict_key' => 614,
+		'text' => '24-Port Fast Ethernet L2 Managed PoE Switch with 2 x 1000BASE-T and 2 x Combo 1000BASE-T/SFP ports ',
+		'processors' => array ('Dlink-3028-25-to-26-Combo','Dlink-3028-25-to-28-1000T','Dlink-3028-100TX'),
 	),
 	'171.10.63.8' => array
 	(
@@ -3847,6 +4046,12 @@ $known_switches = array // key is system OID w/o "enterprises" prefix
 		'text' => 'CE6850-48S4Q-EI: 48 SFP+ slots + 4 QSFP+ slots',
 		'processors' => array ('hce-any-SFP', 'hce-any-QSFP', 'quidway-mgmt'),
 	),
+	'2011.2.239.49' => array
+	(
+		'dict_key' => 3716,
+		'text' => 'CE6865-48S8CQ-EI: 48 SFP28 slots + 8 QSFP28 slots',
+		'processors' => array ('hce-any-SFP28', 'hce-any-QSFP28-split', 'hce-any-QSFP28', 'quidway-mgmt'),
+	),
 	'2011.2.239.32' => array
 	(
 		'dict_key' => 1772,
@@ -4013,8 +4218,32 @@ $known_switches = array // key is system OID w/o "enterprises" prefix
 	(
 		'dict_key' => 1793,
 		'text' => 'TL-SG5426: 22 RJ-45/10-100-1000T(X) + 4 combo ports',
-		'processors' => array ('tplink-21-to-24-combo-1000SFP', 'tplink-any-1000T'),
+		'processors' => array ('tplink-21-to-24-combo-1000SFP', 'tplink-sg-stackable-any-1000T'),
 	),
+	'11863.1.1.12' => array
+	(
+		'dict_key' => 3671,
+		'text' => 'TL-SG2216: 16 RJ-45/10-100-1000T(X) + 2 combo ports',
+		'processors' => array ('tplink-15-to-16-combo-1000SFP', 'tplink-sg-1000T'),
+	),
+	'11863.1.1.3' => array
+	(
+		'dict_key' => 3672,
+		'text' => 'TL-SG3424: 24 RJ-45/10-100-1000T(X) + 4 combo ports',
+		'processors' => array ('tplink-21-to-24-combo-1000SFP', 'tplink-sg-1000T'),
+	),
+	'11863.5.31' => array
+	(
+		'dict_key' => 3670,
+		'text' => 'T1700G-28TQ: 24 RJ-45/10-100-1000T(X) + 4 SFP+/10000',
+		'processors' => array ('tplink-jetstream-any-1000T', 'tplink-jetstream-any-10000SFP+'),
+	),
+	'11863.5.86' => array
+    (
+        'dict_key' => 3701,
+        'text' => 'T1600G-18TS: 16 RJ-45/10-100-1000T(X) + 2 SFP/1000',
+        'processors' => array ('tplink-jetstream-any-1000T', 'tplink-jetstream-any-1000SFP'),
+    ),
 	'12356.101.1.3002'=> array
 	(
 		'dict_key' => 1609,
@@ -4098,6 +4327,114 @@ $known_switches = array // key is system OID w/o "enterprises" prefix
 		'dict_key' => 2624,
 		'text' => 'Ubiquiti EdgeSwitch ES-48-LITE',
 		'processors' => array ('ubiquiti-chassis-51-to-52-1000SFP','ubiquiti-chassis-any-1000T','ubiquiti-chassis-any-SFP+'),
+	),
+	'11.2.3.7.11.145' => array
+	(
+		'dict_key' => 3654,
+		'text' => 'HP Aruba 2530 48 PoE+ Switch, (48) RJ-45 10/100 PoE+ ports, (2) autosensing 10/100/1000 ports, (2) fixed Gigabit Ethernet SFP ports',
+		'processors' => array ('procurve-51-to-52-1000SFP','procurve-49-to-50-1000T','procurve-chassis-100TX'),
+	),
+	'11.2.3.7.11.146' => array
+	(
+		'dict_key' => 3655,
+		'text' => 'HP Aruba 2530 24 PoE+ Switch, (24) RJ-45 10/100 PoE+ ports, (2) autosensing 10/100/1000 ports, (2) fixed Gigabit Ethernet SFP ports',
+		'processors' => array ('procurve-27-to-28-1000SFP','procurve-25-to-26-1000T','procurve-chassis-100TX'),
+	),
+	'25506.11.1.181' => array
+	(
+		'dict_key' => 3656,
+		'text' => 'HP 1950 48G 2SFP+ 2XGT Switch, (48) RJ-45 auto-negotiating 10/100/1000 PoE+ ports, (2) SFP+ fixed 1000/10000 SFP+ ports, (2) RJ-45 1/10GBASE-T ports',
+		'processors' => array ('procurve-49-to-50-10GBase-T','procurve-51-to-52-10000SFP+','procurve-any-1000T'),
+	),
+	'25506.11.1.100' => array
+	(
+		'dict_key' => 3659,
+		'text' => 'HPE FlexFabric 5900AF 48XG 4QSFP+ Switch, 1G/10G SFP+ and 4 QSFP+-ports, dual hot-pluggable power supplies and fan trays,',
+		'processors' => array ('catalyst-chassis-FortyGigE','catalyst-chassis-any-TenGb'),
+	),
+	'25506.11.1.101' => array
+	(
+		'dict_key' => 3658,
+		'text' => 'HPE 5500-24G-4SFP, 24 RJ-45 autosensing 10/100/1000 ports, 4 fixed Gigabit Ethernet SFP ports',
+		'processors' => array ('procurve-25-to-28-1000SFP', 'procurve-any-1000T', 'catalyst-chassis-any-TenGb'),
+	),
+	'25506.11.1.46' => array
+	(
+		'dict_key' => 3662,
+		'text' => 'HP A5800AF-48G Switch with 2 Processors (JG225A), (48) RJ-45 10/100/1000 ports, (6) fixed 1000/10000 SFP+ ports',
+		'processors' => array ('catalyst-chassis-any-TenGb','procurve-any-1000T'),
+	),
+	'11.2.3.7.11.150' => array
+	(
+		'dict_key' => 3660,
+		'text' => 'HP 1810-8G v2 (J9802A)',
+		'processors' => array ('procurve-8ports-1000T'),
+	),
+	'11.2.3.7.11.151' => array
+	(
+		'dict_key' => 3730,
+		'text' => 'HP 1810-24G v2 (J9803A), 24 x Gigabit Ethernet 10/100/1000, 2 x SFP',
+		'processors' => array ('procurve-1810-1000SFP','procurve-1810-1000T'),
+	),
+	'11.2.3.7.11.194' => array
+	(
+		'dict_key' => 2242,
+		'text' => 'HP 1810-24G (J9450A), 22 x Gigabit Ethernet 10/100/1000, 2 combo ports',
+		'processors' => array ('procurve-1810-23-to-24-COMBO','procurve-1810-1000T'),
+	),
+	'11.2.3.7.11.103' => array
+	(
+		'dict_key' => 3729,
+		'text' => 'HP 1810-8G (J9449A), 8 Gigabit Ethernet 10/100/1000',
+		'processors' => array ('procurve-8ports-1000T'),
+	),
+	'9.1.1643' => array
+	(
+		'dict_key' => 2190,
+		'text' => 'Cisco Catalyst 3850-48T-S Switch, 48 10/100/1000',
+		'processors' => array ('cisco-25-to-28-1000SFP', 'catalyst-stack-any-1000T'),
+	),
+	'9.1.571' => array
+	(
+		'dict_key' => 3731,
+		'text' => 'Cisco 871',
+		'processors' => array ('catalyst-any-100TX'),
+	),
+	'9.12.3.1.3.1239' => array
+	(
+		'dict_key' => 2332,
+		'text' => 'Cisco Nexus 3064-T Switch,  48 x 10GBase-T + 4 x QSFP+',
+		'processors' => array ('nexus-any-QSFP-split', 'nexus-any-10000T'),
+	),
+	'9.1.1644' => array
+	(
+		'dict_key' => 2189,
+		'text' => 'Cisco Catalyst Model WS-C3850-24T, 24 Gigabit Ethernet',
+		'processors' => array ('cisco-25-to-28-1000SFP', 'catalyst-stack-any-1000T'),
+	),
+	'11.2.3.7.11.50' => array
+	(
+		'dict_key' => 3728,
+		'text' => 'HP ProCurve 5406zl (J8697A)',
+		'processors' => array ('procurve-modular-1000T'),
+	),
+	'25506.11.1.33' => array
+	(
+		'dict_key' => 3732,
+		'text' => 'HP A5120-24G EI (JE068A),  24 ports 10/100/1000Base-T, 4 Combo ports 10/100/1000Base-T/SFP, 2 interface slots for 10Gbe',
+		'processors' => array ('procurve-25-to-28-1000SFPcombo','procurve-any-1000T'),
+	),
+	'25506.11.1.85' => array
+	(
+		'dict_key' => 2238,
+		'text' => 'JE009A: 48 RJ-45/10-100-1000T(X) + 4 SFP-1000 ports',
+		'processors' => array ('3com-49-to-50-1000SFP', '3com-51-to-52-1000SFP', '3com-any-1000T'),
+	),
+	'11.2.3.7.11.69' => array
+	(
+		'dict_key' => 872,
+		'text' => ' J9049A: 24 RJ-45/10-100-1000T',
+		'processors' => array ('procurve-21-to-24-combo-1000SFP', 'procurve-chassis-1000T'),
 	),
 );
 
@@ -4453,6 +4790,7 @@ function doSwitchSNMPmining ($objectInfo, $device)
 		if ($serialNo != '')
 			updateStickerForCell ($objectInfo, 1, str_replace ('"', '', substr ($serialNo, strlen ('STRING: '))));
 		break;
+	case preg_match ('/^171\.10\.63\.6/', $sysObjectID): // D-Link DES-3028
 	case preg_match ('/^171\.10\.63\.8/', $sysObjectID): // D-Link DES-3052
 	case preg_match ('/^202\.20\./', $sysObjectID): // SMC TigerSwitch
 	case preg_match ('/^674\.10895\.4/', $sysObjectID): // Dell PowerConnect
@@ -4462,7 +4800,8 @@ function doSwitchSNMPmining ($objectInfo, $device)
 	case preg_match ('/^3955\.6\.1\.20(24|48)\.1/', $sysObjectID): // Linksys
 	case preg_match ('/^3955\.6\.50(24|48)/', $sysObjectID): // Linksys
 	case preg_match ('/^4526\.100\./', $sysObjectID): // NETGEAR (with console)
-	case preg_match ('/^11863\.1\.1\.1/', $sysObjectID): // TP-Link
+	case preg_match ('/^11863\.1\.1\.1$/', $sysObjectID): // TP-Link
+	case preg_match ('/^11863\.1\.1\.3$/', $sysObjectID): // TP-Link TL-SG3424
 	case preg_match ('/^11863\.6\.10\.58/', $sysObjectID):
 		// one DB-9 RS-232 and one AC port
 		checkPIC ('1-681');
@@ -4494,6 +4833,7 @@ function doSwitchSNMPmining ($objectInfo, $device)
 		checkPIC ('1-16');
 		addDesiredPort ($desiredPorts, 'AC-in', '1-16', '', '');
 		break;
+	case preg_match ('/^43\.1\.8\.72/', $sysObjectID): // 3Com
 	case preg_match ('/^43\.1\.16\.4\.3\./', $sysObjectID): // 3Com
 		$sw_version = preg_replace('/^.* Version 3Com OS ([^ ]+).*$/', '\\1', $sysDescr);
 		updateStickerForCell ($objectInfo, 5, $sw_version);
@@ -4553,7 +4893,7 @@ function doSwitchSNMPmining ($objectInfo, $device)
 		$randomindex = preg_replace ("/^.*ifPhysAddress\.(.+)\$/", '\\1', $oid);
 		$value = trim ($value);
 		// NET-SNMP may return MAC addresses in one of two (?) formats depending on
-		// DISPLAY-HINT internal database. The best we can do about it is to accept both.
+		// DISPLAY-HINT internal database. Try to work around it.
 		// Bug originally reported by Walery Wysotsky against openSUSE 11.0.
 		if (preg_match ('/^string: [0-9a-f]{1,2}(:[0-9a-f]{1,2}){5}/i', $value)) // STRING: x:yy:z:xx:y:zz
 		{
@@ -4571,7 +4911,8 @@ function doSwitchSNMPmining ($objectInfo, $device)
 			continue; // martian format
 		$ifInfo[$randomindex]['ifPhysAddress'] = implode ('', $addrbytes);
 	}
-	// process each interface only once regardless of how many processors we have to run
+	// Zero or more (depending on the way they are defined) processors may yield
+	// RackTables ports for each SNMP port.
 	foreach ($ifInfo as $iface)
 		foreach ($known_switches[$sysObjectID]['processors'] as $processor_name)
 		{

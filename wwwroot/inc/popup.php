@@ -155,7 +155,7 @@ function findObjectParentCandidates ($object_id)
 	$object = spotEntity ('object', $object_id);
 	$args = array ($object['objtype_id'], $object_id, $object_id);
 
-	$query  = "SELECT O.id, O.name, O.objtype_id FROM Object O ";
+	$query = "SELECT O.id, O.name, O.objtype_id FROM Object O ";
 	$query .= "LEFT JOIN ObjectParentCompat OPC ON O.objtype_id = OPC.parent_objtype_id ";
 	$query .= "WHERE OPC.child_objtype_id = ? ";
 	$query .= "AND O.id != ? ";
@@ -193,8 +193,7 @@ function sortObjectAddressesAndNames ($a, $b)
 		$name_b = (isset ($b['port_name'])) ? $b['port_name'] : '';
 		$objname_cmp = sortTokenize($name_a, $name_b);
 		if ($objname_cmp == 0)
-			sortTokenize($a['ip'], $b['ip']);
-		return $objname_cmp;
+			$objname_cmp = sortTokenize ($a['ip'], $b['ip']);
 	}
 	return $objname_cmp;
 }
@@ -218,8 +217,8 @@ function renderPopupObjectSelector()
 function handlePopupPortLink()
 {
 	assertPermission('depot', 'default');
-	assertUIntArg ('port');
-	assertUIntArg ('remote_port');
+	genericAssertion ('port', 'natural');
+	genericAssertion ('remote_port', 'natural');
 	assertStringArg ('cable', TRUE);
 	$port_info = getPortInfo ($_REQUEST['port']);
 	$remote_port_info = getPortInfo ($_REQUEST['remote_port']);
@@ -265,31 +264,31 @@ function handlePopupPortLink()
 					showError ('failed to consume a patch cable');
 			}
 		}
-		showOneLiner 
+		showOneLiner
 		(
-			8, 
+			8,
 			array
 			(
 				formatPortLink ($port_info['object_id'], NULL, $port_info['id'], $port_info['name']),
 				formatPort ($remote_port_info),
 			)
 		);
-		addJS (<<<'END'
+		addJSText (<<<'END'
 window.opener.location.reload(true);
 window.close();
 END
-		, TRUE);
+		);
 		backupLogMessages();
 	}
 	else
 	{
 		// JS code to display port compatibility hint
 		// Heredoc, not nowdoc!
-		addJS (<<<"END"
+		addJSText (<<<"END"
 POIFC = {};
 $js_table
 $(document).ready(function () {
-	$('select.porttype').change(onPortTypeChange);	
+	$('select.porttype').change(onPortTypeChange);
 	onPortTypeChange();
 });
 function onPortTypeChange() {
@@ -306,8 +305,8 @@ function onPortTypeChange() {
 	}
 }
 END
-		, TRUE);
-		addCSS (<<<'END'
+		);
+		addCSSText (<<<'END'
 .compat-hint {
 	display: none;
 	font-size: 125%;
@@ -319,7 +318,7 @@ END
 	color: #804040;
 }
 END
-		, TRUE);
+		);
 		// render port type editor form
 		echo '<form method=GET>';
 		echo '<input type=hidden name="module" value="popup">';
@@ -365,7 +364,7 @@ function renderPopupPortSelector()
 	if (isset ($_REQUEST['do_link']))
 		return handlePopupPortLink();
 	assertPermission('depot', 'default');
-	assertUIntArg ('port');
+	genericAssertion ('port', 'natural');
 	$port_id = $_REQUEST['port'];
 	$port_info = getPortInfo ($port_id);
 	$in_rack = isCheckSet ('in_rack');
@@ -406,7 +405,8 @@ function renderPopupPortSelector()
 	)
 		$spare_ports = findSparePorts ($port_info, $filter);
 
-	includeJQueryUI (TRUE);
+	includeJQueryUIJS();
+	includeJQueryUICSS();
 
 	// display search form
 	echo 'Link ' . formatPort ($port_info) . ' to...';
@@ -424,7 +424,7 @@ function renderPopupPortSelector()
 	echo '</tr></table>';
 	finishPortlet();
 
-	addJS (<<<'JSEND'
+	addJSText (<<<'JSEND'
 		$(document).ready( function() {
 			$("#filter-obj").autocomplete({
 				source: "?module=ajax&ac=autocomplete&realm=object",
@@ -464,7 +464,7 @@ function renderPopupPortSelector()
 			});
 		});
 JSEND
-	, TRUE);
+	);
 
 	// display results
 	startPortlet ('Compatible spare ports');

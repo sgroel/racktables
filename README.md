@@ -10,7 +10,10 @@ This clone is for use by Clemson University Information Technology. It has been
 modified to fill specific requirements, including changes to rack layout design,
 color scheme, and contains several plugins by default. Please see the section
 titled "Customizations" for a list of the changes made to the vanilla code, and
-the section titled "Plugins" for a list of plugins provided by default.
+the section titled "Plugins" for a list of plugins provided by default. There is
+now an additional section entitled Custom Scripts which pertains to new custom
+scripts written to make administration of RackTables easier for system admins
+and to integrate with xcat.
 
 # How to Install RackTables
 
@@ -257,7 +260,7 @@ and changing the headers of the columns to be "Front, Interior, Left".
    echo "<tr><th width='10%'>&nbsp;</th><th width='20%'>Front</th>";
    echo "<th width='50%'>Interior</th><th width='20%'>Back</th></tr>\n";
    ```
-   - Change the function randerGridForm. This is the grid displayed when adding\removing
+   - Change the function renderGridForm. This is the grid displayed when adding\removing
      objects from the rack. Modified code:
    ```
    echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '0', ${rackData['height']})\">Left</a></th>";
@@ -316,4 +319,34 @@ and does not change how data is stored or entered into the database.
 By default, this clone of RackTables comes with the AutoLogger framework, and CSV import capabilities.
 The CSV import plugin was originally written by Erik Ruiter, SURFsara BV, Amsterdam, The Netherlands
 in 2014. The original copy of this plugin can be found (here)[https://github.com/sara-nl/racktables-contribs/blob/master/csv_import.php]
-This function has been expanded to add some additional capabilities. 
+This function has been expanded to add some additional capabilities.
+
+## Auto Logger
+The Auto Logger allows for systems or people to update the logs for a target object in racktables. Usage for this would
+include systems running self checks and reports problems detected back to racktables, or administrators adding administrative
+notes to bulk number of systems for maintenance or problem resolution. To configure the Auto Logger, follow the steps below:
+   - Login to the SQL server instance and create a new user with the following permissions
+      ```
+      GRANT SELECT, UPDATE ON <racktables_db>.Object TO '<username>'@'localhost';
+      GRANT SELECT ON <racktables_db>.RackSpace TO '<username>'@'localhost';
+      GRANT SELECT, UPDATE ON <racktables_db>.RackThumbnail TO '<username>'@'localhost';
+      GRANT ALL PRIVILEGES ON <racktables_db>.ObjectLog TO '<username>'@'localhost';
+      ```
+   - From the wwwroot directory, edit the autologger.ini.php file and update the fields using the username and password created
+     previously, the server host address for the database (localhost if running locally), and the database name for the racktables
+     instance.
+
+NOTES: For security purposes, the config.ini is wrapped in php which will hide these parameters from an improperly configured web
+server. The recommended procedure is to move the autologger/config.ini.php file to a location outside of the root web directory to
+prevent apache from serving this file at all. Another solution if this is not possible is to limit access to the file using htaccess
+or the configuration file for Apache.
+
+# Custom Scripts
+The custom_scripts directory will continually be upgraded as more scripts and functionality are added. These scripts are provided
+free of cost, but are to be used at your own risk.
+
+## rt_to_xcat_nodepos.sh
+This script requires [xCAT](https://xcat.org/) to be installed. It relies on the nodels function. The script will take an object
+name or group name to get a list of objects to update. the xCAT table nodepos will be updated. The script will query the RackTables
+database and update the rack, unit, and parent chassis of the object in xCAT using the data found in RackTables. Recommended a
+read-only sql account be used to access the database, and an account that has write access to xCAT databases must be used.

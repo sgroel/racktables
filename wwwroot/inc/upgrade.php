@@ -173,13 +173,26 @@ after the upgrade, try disabling plugins.
 Refer to <a href="http://wiki.racktables.org/index.php/Plugins">the wiki</a> for more information.
 ENDOFTEXT
 ,
+	'0.21.2' => <<<'ENDOFTEXT'
+"Shared router" allocation type introduced, useful for documenting VRRP-protected addresses.
+
+This version drops support for the $localreports global variable, which is
+trivial to replace in a local plugin if necessary.
+
+The "addJS()" function is now deprecated in favour of "addJSText()", "addJSInternal()",
+and "addJSExternal()" functions.  The "addJS()" function will likely be removed in 0.22.0.
+
+The "addCSS()" function is now deprecated in favour of "addCSSText()", "addCSSInternal()",
+and "addCSSExternal()" functions.  The "addCSS()" function will likely be removed in 0.22.0.
+
+For more information on the "addJS()" and "addCSS()" changes see the README.md
+ENDOFTEXT
+,
 );
 
-// At the moment we assume that for any two releases we can
-// sequentally execute all batches that separate them, and
-// nothing will break. If this changes one day, the function
-// below will have to generate smarter upgrade paths, while
-// the upper layer will remain the same.
+// This function currently implements a convention that to upgrade any release R1
+// to a release R2 (such that R2 > R1) it takes to apply the sequence of batches
+// (R1, R2] to database R1.
 // Returning an empty array means that no upgrade is necessary.
 // Returning NULL indicates an error.
 function getDBUpgradePath ($v1, $v2)
@@ -202,6 +215,9 @@ function getDBUpgradePath ($v1, $v2)
 		'0.20.13',
 		'0.20.14',
 		'0.21.0',
+		'0.21.1',
+		'0.21.2',
+		'0.21.3',
 	);
 	if (! in_array ($v1, $versionhistory) || ! in_array ($v2, $versionhistory))
 		return NULL;
@@ -1225,7 +1241,6 @@ ENDOFTRIGGER;
 				(11,1088), (12,1088), (11,1089), (12,1089),
 				(11,1090), (12,1090), (11,1091), (12,1091)";
 
-
 			$query[] = "UPDATE Config SET varvalue = '0.20.12' WHERE varname = 'DB_VERSION'";
 			break;
 		case '0.20.13':
@@ -1283,6 +1298,64 @@ INSERT INTO `Config` (varname, varvalue, vartype, emptyok, is_hidden, is_userdef
 ('DATEONLY_FORMAT','%Y-%m-%d','string','no','no','yes','PHP strftime() format for dates')";
 
 			$query[] = "UPDATE Config SET varvalue = '0.21.0' WHERE varname = 'DB_VERSION'";
+			break;
+		case '0.21.1':
+			// The query below was conditional in the 0.20.0 section, which was wrong.
+			$query[] = "UPDATE Config SET varname = 'VLANNET_LISTSRC' WHERE varname = 'VLANIPV4NET_LISTSRC'";
+			$query[] = "UPDATE Config SET description = 'List of VLAN-related IPv4/IPv6 networks' WHERE varname = 'VLANNET_LISTSRC'";
+			$query[] = "ALTER TABLE ObjectHistory ADD COLUMN event_id int(10) unsigned NOT NULL AUTO_INCREMENT FIRST, ADD PRIMARY KEY (event_id)";
+			$query[] = "DELETE FROM Atom WHERE molecule_id IS NULL OR rack_id IS NULL OR unit_no IS NULL OR atom IS NULL";
+			// Modify the columns explicitly before the primary key addition does it implicitly.
+			$query[] = "ALTER TABLE Atom MODIFY COLUMN molecule_id int(10) unsigned NOT NULL";
+			$query[] = "ALTER TABLE Atom MODIFY COLUMN rack_id int(10) unsigned NOT NULL";
+			$query[] = "ALTER TABLE Atom MODIFY COLUMN unit_no int(10) unsigned NOT NULL";
+			$query[] = "ALTER TABLE Atom MODIFY COLUMN atom enum('front','interior','rear') NOT NULL";
+			$query[] = "ALTER TABLE Atom ADD PRIMARY KEY (molecule_id, rack_id, unit_no, atom)";
+			$query[] = "ALTER TABLE Atom DROP KEY `Atom-FK-molecule_id`";
+			$query[] = "UPDATE Config SET varvalue = '0.21.1' WHERE varname = 'DB_VERSION'";
+			break;
+		case '0.21.2':
+			$query[] = "ALTER TABLE MountOperation ADD UNIQUE KEY `old_molecule_id` (old_molecule_id)";
+			$query[] = "ALTER TABLE MountOperation ADD UNIQUE KEY `new_molecule_id` (new_molecule_id)";
+			$query[] = "ALTER TABLE MountOperation DROP KEY `MountOperation-FK-old_molecule_id`";
+			$query[] = "ALTER TABLE MountOperation DROP KEY `MountOperation-FK-new_molecule_id`";
+			$query[] = "ALTER TABLE IPv4Allocation MODIFY type ENUM('regular','shared','virtual','router','point2point','sharedrouter') NOT NULL DEFAULT 'regular'";
+			$query[] = "ALTER TABLE IPv6Allocation MODIFY type ENUM('regular','shared','virtual','router','point2point','sharedrouter') NOT NULL DEFAULT 'regular'";
+			$query[] = "INSERT INTO Chapter (`id`, `sticky`, `name`) VALUES (39,'no','UPS models')";
+			$query[] = "INSERT INTO AttributeMap (`objtype_id`,`attr_id`,`chapter_id`) VALUES (12,2,39)"; // UPS (UPS models) -> HW type
+			$query[] = "ALTER TABLE TagTree ADD COLUMN description char(255) DEFAULT NULL AFTER color";
+
+			// new iif_type SFP28
+			$query[] = "INSERT INTO PortInnerInterface VALUES (16, 'SFP28')";
+			$query[] = "INSERT INTO PortOuterInterface VALUES
+				(1592, 'empty SFP28'),
+				(1651, '25GBase-KR'),
+				(1652, '25GBase-T'),
+				(1653, '25GBase-CR'),
+				(1654, '25GBase-SR'),
+				(1655, '25GBase-LR'),
+				(1656, '25Gbase-ER')";
+			$query[] = "INSERT INTO PortInterfaceCompat VALUES
+				(16,1592),(16,1651),(16,1653),(16,1654),(16,1655),(16,1656),
+				(16,30),(16,35),(16,36),(16,37),(16,38),(16,39),(16,40)";
+			$query[] = "INSERT INTO PortCompat VALUES
+				(1592, 1592),
+				(1592, 1084),
+				(1084, 1592),
+				(1651, 1651),
+				(1652, 1652),
+				(1653, 1653),
+				(1654, 1654),
+				(1655, 1655),
+				(1656, 1656)";
+			$query[] = "UPDATE Config SET varvalue = CONCAT(varvalue, '; 16=1592')
+				WHERE varname = 'DEFAULT_PORT_OIF_IDS' AND 0 = INSTR(varvalue, '16=')";
+			$query[] = "UPDATE Config SET varname = 'VIRTUAL_OBJ_CSV' WHERE varname = 'VIRTUAL_OBJ_LISTSRC'";
+			$query[] = "UPDATE Config SET varvalue = '0.21.2' WHERE varname = 'DB_VERSION'";
+			break;
+		case '0.21.3':
+			$query[] = "INSERT INTO Config VALUES ('OBJECTLOG_PREVIEW_ENTRIES','5','uint','no','no','yes','Object log preview maximum entries (0 disables the preview)')";
+			$query[] = "UPDATE Config SET varvalue = '0.21.3' WHERE varname = 'DB_VERSION'";
 			break;
 		case 'dictionary':
 			$query = reloadDictionary();
@@ -1452,7 +1525,7 @@ ENDOFTEXT;
 <h1>Platform check status</h1>
 ENDOFTEXT;
 
-if (!platform_is_ok())
+if (! platform_is_ok (TRUE))
 {
 	echo '<h1>Please resolve the failed (red) item(s) above.</h1>';
 	die ('</body></html>');
@@ -1497,7 +1570,7 @@ else
 			echo 'It is <strong>highly recommended</strong> to make a database backup before ';
 			echo 'proceeding any further. <tt>mysqldump</tt> and <tt>PHPMyAdmin</tt> are convenient ';
 			echo 'tools for doing this.</p>';
-			echo '<p><input type=checkbox name=reallyreally id=reallyreally><label for=reallyreally>';
+			echo '<p><label><input type=checkbox name=reallyreally>';
 			echo 'I am ready to bear all risks of this upgrade. I am ready to roll it back in case of ';
 			echo 'a failure.</label> <input type=submit value="Yes, I am."></p></td></tr></form>';
 		}

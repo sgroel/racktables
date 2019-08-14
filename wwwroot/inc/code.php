@@ -12,7 +12,6 @@
  *
  */
 
-
 class RCParserError extends Exception
 {
 	public $lineno;
@@ -168,7 +167,7 @@ class RackCodeParser
 						default:
 							if (preg_match ('/[\p{L}]/u', $char))
 							{
-								$state =  self::LEX_S_KEYWORD;
+								$state = self::LEX_S_KEYWORD;
 								$buffer = $char;
 							}
 							else
@@ -321,7 +320,7 @@ class RackCodeParser
 					'op' => 'clear',
 					'lineno' => $lineno,
 				);
-			elseif (! $list) // we need at least one CTXMOD
+			elseif (! $list) // a CTXMODLIST consists of at least one CTXMOD
 				throw new RCParserError ("expecting CTXMOD");
 			else
 				break;

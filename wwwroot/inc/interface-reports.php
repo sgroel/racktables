@@ -32,72 +32,36 @@ function renderSystemReports ()
 			'type' => 'custom',
 			'func' => 'renderTagStats'
 		),
-	);
-	renderReports ($tmp);
-}
-
-function renderLocalReports ()
-{
-	global $localreports;
-	renderReports ($localreports);
-}
-
-function renderRackCodeReports ()
-{
-	$tmp = array
-	(
 		array
 		(
-			'title' => 'Stats',
+			'title' => 'RackCode stats',
 			'type' => 'counters',
 			'func' => 'getRackCodeStats',
 		),
 		array
 		(
-			'title' => 'Warnings',
+			'title' => 'RackCode warnings',
 			'type' => 'messages',
 			'func' => 'getRackCodeWarnings',
 		),
-	);
-	renderReports ($tmp);
-}
-
-function renderIPv4Reports ()
-{
-	$tmp = array
-	(
 		array
 		(
-			'title' => 'Stats',
+			'title' => 'IPv4',
 			'type' => 'counters',
 			'func' => 'getIPv4Stats'
 		),
-	);
-	renderReports ($tmp);
-}
-
-function renderIPv6Reports ()
-{
-	$tmp = array
-	(
 		array
 		(
-			'title' => 'Stats',
+			'title' => 'IPv6',
 			'type' => 'counters',
 			'func' => 'getIPv6Stats'
 		),
 	);
-	renderReports ($tmp);
-}
-
-function renderPortsReport ()
-{
-	$tmp = array();
 	foreach (getPortIIFOptions() as $iif_id => $iif_name)
 		if (count (getPortIIFStats ($iif_id)))
 			$tmp[] = array
 			(
-				'title' => $iif_name,
+				'title' => "{$iif_name} ports",
 				'type' => 'meters',
 				'func' => 'getPortIIFStats',
 				'args' => $iif_id,
@@ -156,10 +120,14 @@ function render8021QReport ()
 		foreach (array_keys ($domains) as $domain_id)
 		{
 			echo '<td class=tdcenter>';
-			if (array_key_exists ($domain_id, $vlanstats[$vlan_id]))
-				echo mkA ('&exist;', 'vlan', "${domain_id}-${vlan_id}");
-			else
+			if (! array_key_exists ($domain_id, $vlanstats[$vlan_id]))
 				echo '&nbsp;';
+			else
+			{
+				$attrs = $vlanstats[$vlan_id][$domain_id]['vlan_descr'] == '' ? NULL :
+					array ('title' => $vlanstats[$vlan_id][$domain_id]['vlan_descr']);
+				echo mkA ('&exist;', 'vlan', "${domain_id}-${vlan_id}", NULL, $attrs);
+			}
 			echo '</td>';
 		}
 		echo '</tr>';
@@ -203,9 +171,9 @@ function renderReports ($what)
 					$data = $item['func'] ();
 				foreach ($data as $meter)
 				{
-					echo "<tr><td class=tdright>${meter['title']}:</td><td class=tdcenter>";
+					echo "<tr><td class=tdright>${meter['title']}:</td><td class=tdleft>";
 					renderProgressBar ($meter['max'] ? $meter['current'] / $meter['max'] : 0);
-					echo '<br><small>' . ($meter['max'] ? $meter['current'] . '/' . $meter['max'] : '0') . '</small></td></tr>';
+					echo ' <small>' . ($meter['max'] ? $meter['current'] . '/' . $meter['max'] : '0') . '</small></td></tr>';
 				}
 				break;
 			case 'custom':
@@ -223,8 +191,7 @@ function renderReports ($what)
 
 function renderTagStats ()
 {
-	global $taglist;
-	echo '<table border=1><tr><th>tag</th><th>total</th><th>objects</th><th>IPv4 nets</th><th>IPv6 nets</th>';
+	echo '<table class="zebra widetable"><tr><th>tag</th><th>total</th><th>objects</th><th>IPv4 nets</th><th>IPv6 nets</th>';
 	echo '<th>racks</th><th>IPv4 VS</th><th>IPv4 RS pools</th><th>users</th><th>files</th></tr>';
 	$pagebyrealm = array
 	(
@@ -523,7 +490,7 @@ function renderDataIntegrityReport ()
 		'FROM Object CO ' .
 		'LEFT JOIN EntityLink EL ON CO.id = EL.child_entity_id ' .
 		'LEFT JOIN Object PO ON EL.parent_entity_id = PO.id ' .
-		'LEFT JOIN ObjectParentCompat OPC ON PO.objtype_id = OPC.parent_objtype_id ' .
+		'LEFT JOIN ObjectParentCompat OPC ON PO.objtype_id = OPC.parent_objtype_id AND CO.objtype_id = OPC.child_objtype_id ' .
 		'LEFT JOIN Dictionary PD ON PO.objtype_id = PD.dict_key ' .
 		'LEFT JOIN Dictionary CD ON CO.objtype_id = CD.dict_key ' .
 		"WHERE EL.parent_entity_type = 'object' AND EL.child_entity_type = 'object' " .
@@ -980,6 +947,60 @@ function renderDataIntegrityReport ()
 		finishPortlet();
 	}
 
+	// check 13: configuration variables
+	$config_nodefaults = array
+	(
+		'enterprise' => 'MyCompanyName',
+		'DB_VERSION' => CODE_VERSION,
+	);
+	$config_recognized = array_merge (getConfigDefaults(), $config_nodefaults);
+	$config_present = loadConfigCache();
+	// 13.1: anything that is present but not recognized
+	if (count ($martians = array_diff_key ($config_present, $config_recognized)))
+	{
+		$violations = TRUE;
+		startPortlet ('Unknown configuration options');
+		$columns = array
+		(
+			array ('th_text' => 'Option', 'row_key' => 'varname', 'td_class' => 'varname tdright'),
+			array ('th_text' => 'Current value', 'row_key' => 'varvalue'),
+		);
+		renderTableViewer ($columns, $martians);
+		finishPortlet();
+	}
+	// 13.2: anything that would be recognized if it was present (but is not)
+	if (count ($missing = array_diff_key ($config_recognized, $config_present)))
+	{
+		$violations = TRUE;
+		startPortlet ('Missing configuration options');
+		$columns = array
+		(
+			array ('th_text' => 'Option', 'row_key' => 'varname', 'td_class' => 'varname tdright'),
+			array ('th_text' => 'Default value', 'row_key' => 'varvalue'),
+		);
+		// $config_recognized has a different structure
+		$rows = array();
+		foreach ($missing as $varname => $default_value)
+			$rows[] = array ('varname' => $varname, 'varvalue' => $default_value);
+		renderTableViewer ($columns, $rows);
+		finishPortlet();
+	}
+
 	if (! $violations)
 		echo '<h2 class=centered>No integrity violations found</h2>';
+}
+
+function renderServerConfigurationReport ()
+{
+	echo '<br>';
+	try
+	{
+		$test_innodb = isInnoDBSupported();
+	}
+	catch (PDOException $e)
+	{
+		showError ('InnoDB test failed (is binary logging enabled?).');
+		$test_innodb = FALSE;
+	}
+	platform_is_ok ($test_innodb);
 }

@@ -45,11 +45,18 @@ function renderUserListEditor ()
 	$accounts = listCells ('user');
 	startPortlet ('Manage existing (' . count ($accounts) . ')');
 	echo '<table cellspacing=0 cellpadding=5 align=center class=widetable>';
-	echo '<tr><th>Username</th><th>Real name</th><th>New password (use old if blank)</th><th>&nbsp;</th></tr>';
+	echo '<tr><th>&nbsp;</th><th>Username</th><th>Real name</th><th>New password (use old if blank)</th><th>&nbsp;</th></tr>';
 	foreach ($accounts as $account)
 	{
 		printOpFormIntro ('updateUser', array ('user_id' => $account['user_id']));
-		echo "<tr><td><input type=text name=username value='${account['user_name']}' size=16></td>";
+		echo '<tr>';
+		echo '<td>';
+		if ($account['user_id'] == 1)
+			printImageHREF ('nodestroy', 'the administrator account cannot be deleted');
+		else
+			echo getOpLink (array ('op' => 'deleteUser', 'id' => $account['user_id']), '', 'destroy', 'delete user account');
+		echo '</td>';
+		echo "<td><input type=text name=username value='${account['user_name']}' size=16></td>";
 		echo "<td><input type=text name=realname value='${account['user_realname']}' size=24></td>";
 		echo "<td><input type=password name=password size=40></td><td>";
 		printImageHREF ('save', 'Save changes', TRUE);
@@ -89,21 +96,21 @@ function renderUserProperties ($user_id)
 function renderRackCodeViewer ()
 {
 	echo '<table width="100%" border=0>';
-	addJS ('js/codemirror/codemirror.js');
-	addJS ('js/codemirror/rackcode.js');
-	addCSS ('css/codemirror/codemirror.css');
-	addCSS ('css/codemirror/rackcode.css');
+	addJSInternal ('js/codemirror/codemirror.js');
+	addJSInternal ('js/codemirror/rackcode.js');
+	addCSSInternal ('css/codemirror/codemirror.css');
+	addCSSInternal ('css/codemirror/rackcode.css');
 	if (! array_key_exists ('line', $_REQUEST))
 		$scrollcode = '';
 	else
 	{
 		// Line numbers start from 0 in CodeMirror API and from 1 elsewhere.
-		$lineno = genericAssertion ('line', 'uint') - 1;
+		$lineno = genericAssertion ('line', 'natural') - 1;
 		$scrollcode = "rackCodeMirror.addLineClass (${lineno}, 'wrap', 'border_highlight');\n" .
 			"rackCodeMirror.scrollIntoView ({line: ${lineno}, ch: 0}, 50);\n";
 	}
 	// Heredoc, not nowdoc!
-	addJS (<<<"ENDJAVASCRIPT"
+	addJSText (<<<"ENDJAVASCRIPT"
 $(document).ready(function() {
 	var rackCodeMirror = CodeMirror.fromTextArea(document.getElementById("RCTA"),{
 		mode:'rackcode',
@@ -113,7 +120,7 @@ $(document).ready(function() {
 	${scrollcode}
 });
 ENDJAVASCRIPT
-	, TRUE);
+	); // addJSText ()
 	echo "<tr><td><textarea rows=40 cols=100 id=RCTA>";
 	echo loadScript ('RackCode') . "</textarea></td></tr>\n";
 	echo '</table>';
@@ -121,11 +128,11 @@ ENDJAVASCRIPT
 
 function renderRackCodeEditor ()
 {
-	addJS ('js/codemirror/codemirror.js');
-	addJS ('js/codemirror/rackcode.js');
-	addCSS ('css/codemirror/codemirror.css');
-	addCSS ('css/codemirror/rackcode.css');
-	addJS (<<<'ENDJAVASCRIPT'
+	addJSInternal ('js/codemirror/codemirror.js');
+	addJSInternal ('js/codemirror/rackcode.js');
+	addCSSInternal ('css/codemirror/codemirror.css');
+	addCSSInternal ('css/codemirror/rackcode.css');
+	addJSText (<<<'ENDJAVASCRIPT'
 function verify()
 {
 	$.ajax({
@@ -166,7 +173,7 @@ $(document).ready(function() {
     });
 });
 ENDJAVASCRIPT
-	, TRUE);
+	); // addJSText ()
 
 	printOpFormIntro ('saveRackCode');
 	echo '<table width="100%" border=0>';
@@ -617,7 +624,7 @@ function renderDictionary ()
 	echo '</ul>';
 }
 
-// We don't allow to rename/delete a sticky chapter and we don't allow
+// Do not allow to rename/delete a sticky chapter and do not allow
 // to delete a non-empty chapter.
 function renderChaptersEditor ()
 {
@@ -846,7 +853,7 @@ function renderConfigEditor ()
 
 function renderUIResetForm()
 {
-	printOpFormIntro ('go');
+	printOpFormIntro ('resetUIConfig');
 	echo "This button will reset user interface configuration to its defaults (except organization name): ";
 	echo "<input type=submit value='proceed'>";
 	echo "</form>";
@@ -892,7 +899,9 @@ function renderTagRowForViewer ($taginfo, $level = 0)
 	if (count ($taginfo['kids']))
 		printImageHREF ('node-expanded-static');
 	echo '<span title="' . serializeTagStats ($taginfo) . '" class="' . getTagClassName ($taginfo['id']) . '">' . $taginfo['tag'];
-	echo '</span>' . ($refc ? " <i>(${refc})</i>" : '') . "</td></tr>\n";
+	echo '</span>' . ($refc ? " <i>(${refc})</i>" : '') . '</td>';
+	echo '<td>' . stringForTD ($taginfo['description'], 64) . '</td>';
+	echo "</tr>\n";
 	foreach ($taginfo['kids'] as $kid)
 		$self ($kid, $level + 1);
 }
@@ -900,6 +909,7 @@ function renderTagRowForViewer ($taginfo, $level = 0)
 function renderTagTree ()
 {
 	echo '<center><table class=tagtree>';
+	echo '<tr><th>name</th><th>description</th></tr>';
 	foreach (getTagTree() as $taginfo)
 		renderTagRowForViewer ($taginfo);
 	echo '</table></center>';
@@ -949,7 +959,7 @@ function renderTagRowForEditor ($taginfo, $parent_name = NULL, $level = 0)
 
 function addParentNodeOptionsJS ($prefix, $nodetype)
 {
-	addJS
+	addJSText
 	(
 // Heredoc, not nowdoc!
 <<<"END"
@@ -961,8 +971,7 @@ $(document).ready(function () {
 	$('select.nodelist-popup').bind('mousedown', ${prefix}_showselectbox);
 });
 END
-		, TRUE
-	);
+	); // addJSText()
 }
 
 function getColorSelect($id = 'color', $selected = NULL)
@@ -974,7 +983,7 @@ function getColorSelect($id = 'color', $selected = NULL)
 			$class = '';
 
 		$ret = "<select tabindex='1' name='color' id='${id}' onchange='this.className=this.options[this.selectedIndex].className;'${class}>";
-		$ret .= '<option value=""option>';
+		$ret .= '<option value=""></option>';
 
 		$colors = array(
 				'FFFFFF',
@@ -1035,6 +1044,56 @@ function renderTagTreeEditor ()
 	if (getConfigVar ('ADDNEW_AT_TOP') != 'yes')
 		printNewItemTR ($options);
 	echo '</table>';
+}
+
+function renderTagRowForDescriptions ($taginfo, $level = 0)
+{
+	$self = __FUNCTION__;
+
+	$trclass = $taginfo['is_assignable'] == 'yes' ? '' : ($taginfo['kidc'] ? ' trnull' : ' trwarning');
+	if (!count ($taginfo['kids']))
+		$level++; // Shift instead of placing a spacer. This won't impact any nested nodes.
+	$refc = $taginfo['refcnt']['total'];
+	echo "<tr class='${trclass}'>";
+
+	echo '<td align=left style="padding-left: ' . ($level * 16) . 'px;">';
+	printOpFormIntro ('updTagDescr', array ('id' => $taginfo['id']));
+	if (count ($taginfo['kids']))
+		printImageHREF ('node-expanded-static');
+	echo '<span title="' . serializeTagStats ($taginfo) . '" class="' . getTagClassName ($taginfo['id']) . '">' . $taginfo['tag'];
+	echo '</span>' . ($refc ? " <i>(${refc})</i>" : '') . "</td>";
+
+	echo '<td>';
+	if ($taginfo['description'] === NULL)
+		echo '&nbsp;';
+	else
+		echo getOpLink
+		(
+			array ('op' => 'updTagDescr', 'id' => $taginfo['id'], 'description' => ''),
+			'',
+			'clear',
+			'Clear value'
+		);
+	echo '</td>';
+
+	echo '<td><input type=text size=64 name=description value="';
+	echo stringForTextInputValue ($taginfo['description'], 0) . '"></td>';
+
+	echo '<td>' . getImageHREF ('save', 'Save changes', TRUE) . '</td>';
+	echo '</form>';
+	echo "</tr>\n";
+
+	foreach ($taginfo['kids'] as $kid)
+		$self ($kid, $level + 1);
+}
+
+function renderTagDescriptionsEditor()
+{
+	echo '<br><table cellspacing=0 cellpadding=5 align=center class=widetable>';
+	echo '<tr><th>tag name</th><th>&nbsp;</th><th>tag description</th></tr>';
+	foreach (getTagTree() as $taginfo)
+		renderTagRowForDescriptions ($taginfo);
+	echo '</table></center><br>';
 }
 
 function renderGraphCycleResolver()

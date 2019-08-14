@@ -4,6 +4,11 @@
 # framework. See accompanying file "COPYING" for the full copyright and
 # licensing information.
 
+// functions for HP Procurve switches (N.11 OS)
+require_once 'breed-hpprocurveN1178.php';
+// functions for Cisco IOS 15 switches
+require_once 'breed-ios15.php';
+
 // Read provided output of "show cdp neighbors detail" command and
 // return a list of records with (translated) local port name,
 // remote device name and (translated) remote port name.
@@ -368,7 +373,7 @@ function ios12ScanTopLevel (&$work, $line)
 		$work['current'] = array ('port_name' => $port_name);
 		$work['portconfig'][$port_name][] = array ('type' => 'line-header', 'line' => $line);
 		return 'ios12-get8021q-readport'; // switch to interface block reading
-	case (preg_match ('/^VLAN Name                             Status    Ports$/', $line, $matches)):
+	case (preg_match ('/^VLAN Name\s+Status\s+Ports$/', $line, $matches)):
 		return 'ios12-get8021q-readvlan';
 	default:
 		return 'ios12-get8021q-top'; // continue scan
@@ -397,7 +402,7 @@ function ios12PickSwitchportCommand (&$work, $line)
 		$work['portconfig'][$port_name][] = array ('type' => 'line-header', 'line' => $line);
 
 		// save work, if it makes sense
-		if (! in_array ($port_name, $work['switchports']))
+		if (! isset ($work['switchports']) || ! in_array ($port_name, $work['switchports']))
 			$work['current']['mode'] = 'SKIP'; // skip not switched ports
 		else
 		{
@@ -504,7 +509,7 @@ function ios12PickVLANCommand (&$work, $line)
 	{
 	case (preg_match ('@! END OF VLAN LIST$@', $line)):
 		return 'ios12-get8021q-top';
-	case (preg_match ('@^([[:digit:]]+) {1,4}.{32} active    @', $line, $matches)):
+	case (preg_match ('@^([[:digit:]]+) {1,4}.{32} active\s*@', $line, $matches)):
 		$work['vlanlist'][] = $matches[1];
 		break;
 	default:
@@ -878,7 +883,7 @@ function vrp55Read8021QConfig ($input)
 		// VRP is known to filter off clauses that don't make sense for
 		// current link-type. This way any interface section should contain
 		// only one kind of "set native" clause (but if this constraint breaks,
-		// we get a problem).
+		// there is a problem).
 		case preg_match ('/^ port (default|trunk pvid) vlan ([[:digit:]]+)$/', $line, $matches):
 			$ret['current']['native'] = $matches[2];
 			break;
@@ -1181,9 +1186,9 @@ function nxos4TranslatePushQueue ($dummy_object_id, $queue, $dummy_vlan_names)
 		case 'set mode':
 			if ($cmd['arg2'] == 'trunk')
 			{
-				// some NX-OS platforms ask for confirmation if user tries to
-				// overwrite allowed vlan list. Hence, we need to use
-				// the differentiative remove syntax here
+				// Some NX-OS platforms interactively ask for a confirmation if the CLI user
+				// is trying to overwrite the allowed VLAN list for a port. The differentiative
+				// remove syntax works around this problem.
 				$ret .= "interface ${cmd['arg1']}\n";
 				$ret .= "switchport trunk encapsulation dot1q\n";
 				$ret .= "switchport mode ${cmd['arg2']}\n";
@@ -2740,7 +2745,8 @@ function ros11Read8021QPorts (&$work, $line)
 	}
 }
 
-function foundryReadInterfaceStatus ($text) {
+function foundryReadInterfaceStatus ($text)
+{
 	$result = array();
 	$state = 'headerSearch';
 	foreach (explode ("\n", $text) as $line)
@@ -3104,7 +3110,7 @@ function jun10ReadInterfaceStatus ($input)
 					break 2;
 				$field_list = preg_split('/\s+/', $line);
 				if (count ($field_list) < 3)
-					continue;
+					continue 2;
 				$portname = $field_list[0];
 				$admin_status = ($field_list[1] == 'up' || $field_list[1] == 'down') ? $field_list[1] : 'disabled';
 				$link_status = ($field_list[2] == 'up' || $field_list[2] == 'down') ? $field_list[2] : 'disabled';

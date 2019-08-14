@@ -24,6 +24,7 @@ $aat = array
 	'virtual' => 'Loopback',
 	'shared' => 'Shared',
 	'router' => 'Router',
+	'sharedrouter' => 'Shared router',
 	'point2point' => 'Point-to-point',
 );
 // address allocation code, IPv4 addresses and objects view
@@ -33,6 +34,7 @@ $aac_right = array
 	'virtual' => '<span class="aac-right" title="' . $aat['virtual'] . '">L</span>',
 	'shared' => '<span class="aac-right" title="' . $aat['shared'] . '">S</span>',
 	'router' => '<span class="aac-right" title="' . $aat['router'] . '">R</span>',
+	'sharedrouter' => '<span class="aac-right" title="' . $aat['sharedrouter'] . '">R</span>',
 	'point2point' => '<span class="aac-right" title="' . $aat['point2point'] . '">P</span>',
 );
 // address allocation code, IPv4 networks view
@@ -42,6 +44,7 @@ $aac_left = array
 	'virtual' => '<span class="aac-left" title="' . $aat['virtual'] . '">L:</span>',
 	'shared' => '<span class="aac-left" title="' . $aat['shared'] . '">S:</span>',
 	'router' => '<span class="aac-left" title="' . $aat['router'] . '">R:</span>',
+	'sharedrouter' => '<span class="aac-left" title="' . $aat['sharedrouter'] . '">R:</span>',
 	'point2point' => '<span class="aac-left" title="' . $aat['point2point'] . '">P:</span>',
 );
 
@@ -58,10 +61,6 @@ $vtoptions = array
 	'compulsory' => 'permanent',
 #	'alien' => 'never touch',
 );
-
-// This may be populated later onsite, report rendering function will use it.
-// See the $systemreport for structure.
-$localreports = array();
 
 $attrtypes = array
 (
@@ -309,7 +308,7 @@ function renderLocationFilterPortlet ()
 		}
 	}
 
-	addJS(<<<'END'
+	addJSText (<<<'END'
 function checkAll(bx) {
 	for (var tbls=document.getElementsByTagName("table"), i=tbls.length; i--;)
 		if (tbls[i].id == "locationFilter") {
@@ -364,7 +363,7 @@ function expand(id) {
 	}
 }
 END
-	,TRUE);
+	); // addJSText()
 	startPortlet ('Location filter');
 	echo <<<'END'
 <table border=0 align=center cellspacing=0 class="tagtree" id="locationFilter">
@@ -448,7 +447,7 @@ function renderRackspace ()
 			$found_racks = array_merge ($found_racks, $rackList);
 			$location_id = $rowInfo['location_id'];
 			$locationIdx = 0;
-			// contains location names in the form of 'grandparent parent child', used for sorting 
+			// contains location names in the form of 'grandparent parent child', used for sorting
 			$locationTree = '';
 			// contains location names as well as links
 			$hrefLocationTree = '';
@@ -587,7 +586,7 @@ function renderLocationSelectTree ($select_name, $selected_id = NULL)
 
 function renderRackspaceLocationEditor ()
 {
-	$js = <<<'JSTXT'
+	addJSText (<<<'JSTXT'
 	function locationeditor_showselectbox(e) {
 		$(this).load('index.php', {module: 'ajax', ac: 'get-location-select', locationid: this.id});
 		$(this).unbind('mousedown', locationeditor_showselectbox);
@@ -595,9 +594,9 @@ function renderRackspaceLocationEditor ()
 	$(document).ready(function () {
 		$('select.locationlist-popup').bind('mousedown', locationeditor_showselectbox);
 	});
-JSTXT;
+JSTXT
+	); // addJSText()
 
-	addJS($js, TRUE	);
 	function printNewItemTR ()
 	{
 		printOpFormIntro ('addLocation');
@@ -834,7 +833,9 @@ function printObjectDetailsForRenderRack ($object_id, $hl_obj_id = 0)
 	// Display list of child objects, if any
 	$objectChildren = getChildren ($objectData, 'object');
 	$slotRows = $slotCols = $slotInfo = $slotData = $slotTitle = $slotClass = array ();
-	if (count($objectChildren) > 0)
+	if (! count ($objectChildren))
+		$suffix = "'>";
+	else
 	{
 		foreach ($objectChildren as $childData)
 		{
@@ -874,15 +875,14 @@ function printObjectDetailsForRenderRack ($object_id, $hl_obj_id = 0)
 
 				$child = spotEntity ('object', $childData['id']);
 				setEntityColors ($child);
-				$slotClass[$slot] .= getObjectClass ($child, 'background:white;');
+				$class_context = $childData['id'] == $hl_obj_id ? 'atom_selected' : 'atom_plain';
+				$slotClass[$slot] .= getCellClass ($child, $class_context);
 
 			}
 		}
 		natsort($childNames);
 		$suffix = sprintf(", contains %s'>", implode(', ', $childNames));
 	}
-	else
-		$suffix = "'>";
 	echo "${prefix}${body}${suffix}" . mkCellA ($objectData) . '</div>';
 	if (in_array ($objectData['objtype_id'], array (1502,1503))) // server chassis, network chassis
 	{
@@ -966,9 +966,10 @@ function renderRack ($rack_id, $hl_obj_id = 0)
 	echo "<table class=rack border=0 cellspacing=0 cellpadding=1>\n";
 	echo "<tr><th width='10%'>&nbsp;</th><th width='30%'>Left</th>";
 	echo "<th width='30%'>Interior</th><th width='30%'>Right</th></tr>\n";
+	$reverse = considerConfiguredConstraint ($rackData, 'REVERSED_RACKS_LISTSRC');
 	for ($i = $rackData['height']; $i > 0; $i--)
 	{
-		echo "<tr><th>" . inverseRackUnit ($i, $rackData) . "</th>";
+		echo '<tr><th>' . inverseRackUnit ($rackData['height'], $i, $reverse) . '</th>';
 		for ($locidx = 0; $locidx < 3; $locidx++)
 		{
 			if (isset ($rackData[$i][$locidx]['skipped']))
@@ -984,7 +985,8 @@ function renderRack ($rack_id, $hl_obj_id = 0)
 			{
 				$objectData = spotEntity ('object', $rackData[$i][$locidx]['object_id']);
 				setEntityColors ($objectData);
-				$class .= getObjectClass ($objectData, (isset ($rackData[$i][$locidx]['hl']) && $rackData[$i][$locidx]['hl'] != "" ? "border:3px solid #80ffff !important;" : "")."background:white;");
+				$class_context = $rackData[$i][$locidx]['object_id'] == $hl_obj_id ? 'atom_selected' : 'atom_plain';
+				$class .= getCellClass ($objectData, $class_context);
 			}
 
 			echo "<td class='${class}'";
@@ -1032,7 +1034,8 @@ function renderRack ($rack_id, $hl_obj_id = 0)
 
 			$class = "atom state_${state}";
 			setEntityColors ($zeroUObject);
-			$class .= getObjectClass ($zeroUObject, 'background:white;');
+			$class_context = $zeroUObject['id'] == $hl_obj_id ? 'atom_selected' : 'atom_plain';
+			$class .= getCellClass ($zeroUObject, $class_context);
 
 			echo "<tr><td class='${class}'>";
 			printObjectDetailsForRenderRack ($zeroUObject['id']);
@@ -1045,7 +1048,7 @@ function renderRack ($rack_id, $hl_obj_id = 0)
 
 function renderRackSortForm ($row_id)
 {
-	includeJQueryUI (false);
+	includeJQueryUIJS();
 	// Heredoc, not nowdoc!
 	$js = <<<"JSTXT"
 	$(document).ready(
@@ -1063,7 +1066,7 @@ function renderRackSortForm ($row_id)
 		}
 	);
 JSTXT;
-	addJS ($js, TRUE);
+	addJSText ($js);
 
 	startPortlet ('Racks');
 	echo "<table border=0 cellspacing=0 cellpadding=5 align=center class=widetable>\n";
@@ -1108,7 +1111,6 @@ function renderNewRackForm()
 
 function renderEditObjectForm()
 {
-	global $pageno;
 	$object_id = getBypassValue();
 	$object = spotEntity ('object', $object_id);
 	startPortlet ();
@@ -1183,7 +1185,6 @@ function renderEditObjectForm()
 
 function renderEditRackForm ($rack_id)
 {
-	global $pageno;
 	$rack = spotEntity ('rack', $rack_id);
 	amplifyCell ($rack);
 
@@ -1299,7 +1300,6 @@ function renderRackInfoPortlet ($rackData)
 }
 
 // This is a universal editor of rack design/waste.
-// FIXME: switch to using printOpFormIntro()
 function renderGridForm ($rack_id, $filter, $header, $submit, $state1, $state2)
 {
 	$rackData = spotEntity ('rack', $rack_id);
@@ -1320,15 +1320,18 @@ function renderGridForm ($rack_id, $filter, $header, $submit, $state1, $state2)
 	// Grid form.
 	$is_ro = !rackModificationPermitted ($rackData, 'updateRack');
 	startPortlet ($header);
-	addJS ('js/racktables.js');
+	includeJQueryUIJS();
+	addJSInternal ('js/racktables.js');
+	$table_id = 'selectableRack';
+	addBulkSelectorJS ($table_id);
 	echo "<center>\n";
 	$read_only_text = $is_ro ? '(read-only)' : '&nbsp;';
 	echo "<p style='color: red; margin-top:0px'>${read_only_text}</p>\n";
-	echo "<table class=rack border=0 cellspacing=0 cellpadding=1>\n";
+	echo "<table class=rack id={$table_id} border=0 cellspacing=0 cellpadding=1>\n";
 	echo "<tr><th width='10%'>&nbsp;</th>";
-	echo "<th width='20%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '0', ${rackData['height']})\">Left</a></th>";
-	echo "<th width='50%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '1', ${rackData['height']})\">Interior</a></th>";
-	echo "<th width='20%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '2', ${rackData['height']})\">Right</a></th></tr>\n";
+	echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '0', ${rackData['height']})\">Left</a></th>";
+	echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '1', ${rackData['height']})\">Interior</a></th>";
+	echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '2', ${rackData['height']})\">Right</a></th></tr>\n";
 	printOpFormIntro ('updateRack');
 	markupAtomGrid ($rackData, $state2);
 	renderAtomGrid ($rackData, $is_ro);
@@ -1348,9 +1351,19 @@ function renderRackProblems ($rack_id)
 	renderGridForm ($rack_id, 'applyRackProblemMask', 'Rack problems', 'Mark unusable atoms', 'F', 'U');
 }
 
+function renderObjectPortHeaderRow()
+{
+	// Renders the headers for the ports table on the default page
+
+	echo '<tr><th class=tdleft>Local name</th><th class=tdleft>Visible label</th>';
+	echo '<th class=tdleft>Interface</th><th class=tdleft>L2 address</th>';
+	echo '<th class=tdcenter colspan=2>Remote object and port</th>';
+	echo '<th class=tdleft>Cable ID</th></tr>';
+}
+
 function renderObjectPortRow ($port, $is_highlighted)
 {
-	// highlight port name with yellow if it's name is not canonical
+	// highlight port name with yellow if its name is not canonical
 	$canon_pn = shortenPortName ($port['name'], $port['object_id']);
 	$name_class = $canon_pn == $port['name'] ? '' : 'trwarning';
 
@@ -1390,7 +1403,7 @@ function renderObject ($object_id)
 	echo "<tr><td class=pcleft>";
 
 	// display summary portlet
-	$summary  = array();
+	$summary = array();
 	if ($info['name'] != '')
 		$summary['Common name'] = $info['name'];
 	elseif (considerConfiguredConstraint ($info, 'NAMEWARN_LISTSRC'))
@@ -1461,13 +1474,22 @@ function renderObject ($object_id)
 		finishPortlet ();
 	}
 
-	$logrecords = getLogRecordsForObject ($_REQUEST['object_id']);
-	if (count ($logrecords))
+	$logrecords = getLogRecordsForObject ($object_id);
+	$lr_nrows = count ($logrecords);
+	$lr_confmax = getConfigVar ('OBJECTLOG_PREVIEW_ENTRIES');
+	$lr_max = array_key_exists ('ope', $_REQUEST) ? genericAssertion ('ope', 'unsigned') : $lr_confmax;
+	if ($lr_nrows > 0 && $lr_max > 0)
 	{
-		startPortlet ('log records');
+		$title = 'log records';
+		if ($lr_max < $lr_nrows)
+			$title .= sprintf (' (last %u, <a href="%s">show all</a>)', $lr_max, buildRedirectURL (NULL, NULL, array ('ope' => $lr_nrows)));
+		elseif ($lr_confmax > 0 && $lr_confmax < $lr_nrows)
+			$title .= sprintf (' (all, <a href="%s">show last %u</a>)', buildRedirectURL(), $lr_confmax);
+
+		startPortlet ($title);
 		echo "<table cellspacing=0 cellpadding=5 align=center class=widetable width='100%'>";
 		$order = 'odd';
-		foreach ($logrecords as $row)
+		foreach (array_slice ($logrecords, 0, $lr_max) as $row)
 		{
 			echo "<tr class=row_${order} valign=top>";
 			echo '<td class=tdleft>' . $row['date'] . '<br>' . $row['user'] . '</td>';
@@ -1488,19 +1510,16 @@ function renderObject ($object_id)
 		$hl_port_id = 0;
 		if (isset ($_REQUEST['hl_port_id']))
 		{
-			assertUIntArg ('hl_port_id');
+			genericAssertion ('hl_port_id', 'natural');
 			$hl_port_id = $_REQUEST['hl_port_id'];
 			addAutoScrollScript ("port-$hl_port_id");
 		}
 		echo "<table cellspacing=0 cellpadding='5' align='center' class='widetable'>";
-		echo '<tr><th class=tdleft>Local name</th><th class=tdleft>Visible label</th>';
-		echo '<th class=tdleft>Interface</th><th class=tdleft>L2 address</th>';
-		echo '<th class=tdcenter colspan=2>Remote object and port</th>';
-		echo '<th class=tdleft>Cable ID</th></tr>';
+		callHook ('renderObjectPortHeaderRow');
 		foreach ($info['ports'] as $port)
 			callHook ('renderObjectPortRow', $port, ($hl_port_id == $port['id']));
 		if (permitted (NULL, 'ports', 'set_reserve_comment'))
-			addJS ('js/inplace-edit.js');
+			addJSInternal ('js/inplace-edit.js');
 		echo "</table><br>";
 		finishPortlet();
 	}
@@ -1575,16 +1594,16 @@ function renderObject ($object_id)
 					$osif = $info['ipv4'][$localip_bin]['osif'] . ': ';
 				}
 				echo "<tr class='$class'>";
-				echo "<td>${pf['proto']}</td><td class=tdleft>${osif}" . getRenderedIPPortPair ($pf['localip'], $pf['localport']) . "</td>";
+				echo "<td class=tdleft>${pf['proto']}</td><td class=tdleft>${osif}" . getRenderedIPPortPair ($pf['localip'], $pf['localport']) . "</td>";
 				echo "<td class=tdleft>" . getRenderedIPPortPair ($pf['remoteip'], $pf['remoteport']) . "</td>";
 				$address = getIPAddress (ip4_parse ($pf['remoteip']));
-				echo "<td class='description'>";
+				echo "<td class='description tdleft'>";
 				if (count ($address['allocs']))
 					foreach($address['allocs'] as $bond)
 						echo mkA ("${bond['object_name']}(${bond['name']})", 'object', $bond['object_id']) . ' ';
 				elseif ($pf['remote_addr_name'] != '')
 					echo '(' . $pf['remote_addr_name'] . ')';
-				echo "</td><td class='description'>${pf['description']}</td></tr>";
+				echo "</td><td class='description tdleft'>${pf['description']}</td></tr>";
 			}
 			echo "</table><br><br>";
 		}
@@ -1596,10 +1615,10 @@ function renderObject ($object_id)
 			foreach ($forwards['in'] as $pf)
 			{
 				echo "<tr>";
-				echo "<td>${pf['proto']}/" . getRenderedIPPortPair ($pf['localip'], $pf['localport']) . "</td>";
-				echo '<td class="description">' . mkA ($pf['object_name'], 'object', $pf['object_id']);
-				echo "</td><td>" . getRenderedIPPortPair ($pf['remoteip'], $pf['remoteport']) . "</td>";
-				echo "<td class='description'>${pf['description']}</td></tr>";
+				echo "<td class=tdleft>${pf['proto']}/" . getRenderedIPPortPair ($pf['localip'], $pf['localport']) . "</td>";
+				echo '<td class="description tdleft">' . mkA ($pf['object_name'], 'object', $pf['object_id']);
+				echo "</td><td class=tdleft>" . getRenderedIPPortPair ($pf['remoteip'], $pf['remoteport']) . "</td>";
+				echo "<td class='description tdleft'>${pf['description']}</td></tr>";
 			}
 			echo "</table><br><br>";
 		}
@@ -1719,14 +1738,14 @@ function renderPortsForObject ($object_id)
 
 	if (isset ($_REQUEST['hl_port_id']))
 	{
-		assertUIntArg ('hl_port_id');
+		genericAssertion ('hl_port_id', 'natural');
 		$hl_port_id = intval ($_REQUEST['hl_port_id']);
 		addAutoScrollScript ("port-$hl_port_id");
 	}
 	switchportInfoJS ($object_id); // load JS code to make portnames interactive
 	foreach ($object['ports'] as $port)
 	{
-		// highlight port name with yellow if it's name is not canonical
+		// highlight port name with yellow if its name is not canonical
 		$canon_pn = shortenPortName ($port['name'], $port['object_id']);
 		$name_class = $canon_pn == $port['name'] ? '' : 'trwarning';
 
@@ -1818,10 +1837,11 @@ function renderIPForObject ($object_id)
 	{
 		global $aat;
 
-		includeJQueryUI (TRUE);
+		includeJQueryUIJS();
+		includeJQueryUICSS();
 
 		// Heredoc, not nowdoc!
-		addJS (<<<"JSEND"
+		addJSText (<<<"JSEND"
 			$(document).ready( function() {
 				$('[name="bond_name"]').autocomplete({
 					source: "?module=ajax&ac=autocomplete&realm=bond_name&object_id=$object_id",
@@ -1837,7 +1857,7 @@ function renderIPForObject ($object_id)
 				});
 			});
 JSEND
-		, TRUE);
+		); // addJSText()
 		printOpFormIntro ('add');
 		echo "<tr><td>"; // left btn
 		printImageHREF ('add', 'allocate', TRUE);
@@ -2133,13 +2153,27 @@ function renderPortsInfo($object_id)
 	echo "</td></tr></table>";
 }
 
-/*
-The following conditions must be met:
-1. We can mount onto free atoms only. This means: if any record for an atom
-already exists in RackSpace, it can't be used for mounting.
-2. We can't unmount from 'W' atoms. Operator should review appropriate comments
-and either delete them before unmounting or refuse to unmount the object.
-*/
+function addBulkSelectorJS ($element_id)
+{
+	// Heredoc, not nowdoc!
+	addJSText (<<<"ENDOFJAVASCRIPT"
+$(function () {
+    $("#{$element_id} tbody").selectable({
+        filter: 'td.atom',
+        cancel: 'th,a',
+        stop: function () {
+            $(".ui-selected input:enabled", this).each(function () {
+                this.checked = !this.checked
+            });
+        }
+    });
+});
+ENDOFJAVASCRIPT
+	); // addJSText()
+}
+
+// An object can be mounted onto free atoms only, that is, if any record for an atom
+// already exists in RackSpace, it cannot be used for mounting.
 function renderRackSpaceForObject ($object_id)
 {
 	// Always process occupied racks plus racks chosen by user. First get racks with
@@ -2225,44 +2259,49 @@ function renderRackSpaceForObject ($object_id)
 	// Middle portlet with comment and submit.
 	echo "<td class=pcleft>";
 	startPortlet ('Comment (for Rackspace History)');
-	echo "<textarea name=comment rows=10 cols=40></textarea><br>\n";
+	echo '<textarea name=comment rows=10 cols=40></textarea><br><br>';
 	echo "<input type=submit value='Save' name=got_atoms>\n";
 	echo "<br><br>";
 	finishPortlet();
 	echo "</td>";
 
-	// Right portlet with rendered racks. If this form submit is not final, we have to
-	// reflect the former state of the grid in current form.
+	// Right portlet with rendered racks. If this form submit is not final,
+	// the former state of the grid needs to make it to the current form.
 	echo "<td class=pcright rowspan=2 height='1%'>";
 	startPortlet ('Working copy');
-	includeJQueryUI (false);
-	addJS ('js/racktables.js');
-	addJS ('js/bulkselector.js');
+	includeJQueryUIJS();
+	addJSInternal ('js/racktables.js');
 	echo '<table border=0 cellspacing=10 align=center><tr>';
 	foreach ($workingRacksData as $rack_id => $rackData)
 	{
+		$table_id = "selectableRack_{$rack_id}";
+		addBulkSelectorJS ($table_id);
 		$is_ro = !rackModificationPermitted ($rackData, 'updateObjectAllocation');
 		// Order is important here: only original allocation is highlighted.
 		highlightObject ($rackData, $object_id);
 		markupAtomGrid ($rackData, 'T');
-		// If we have a form processed, discard user input and show new database
+		// If an HTTP form has been processed, discard user input and show new database
 		// contents.
 		if (!$is_ro && isset ($_REQUEST['rackmulti'][0])) // is an update
 			mergeGridFormToRack ($rackData);
-		echo "<td valign=top>";
-		echo "<center>\n<h2 style='margin:0px'>${rackData['name']}</h2>\n";
+		echo '<td valign=bottom>';
+		echo '<center><h2 style="margin:0px">';
+		echo mkA ($rackData['row_name'], 'row', $rackData['row_id']);
+		echo ' : ';
+		echo mkA ($rackData['name'], 'rack', $rackData['id']);
+		echo '</h2>';
 		$read_only_text = $is_ro ? '(read-only)' : '&nbsp;';
 		echo "<p style='color: red; margin-top:0px'>${read_only_text}</p>\n";
-		echo "<table class=rack id=selectableRack border=0 cellspacing=0 cellpadding=1>\n";
+		echo "<table class=rack id={$table_id} border=0 cellspacing=0 cellpadding=1>\n";
 		echo "<tr><th width='10%'>&nbsp;</th>";
-		echo "<th width='20%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '0', ${rackData['height']})\">Left</a></th>";
-		echo "<th width='50%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '1', ${rackData['height']})\">Interior</a></th>";
-		echo "<th width='20%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '2', ${rackData['height']})\">Right</a></th></tr>\n";
+		echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '0', ${rackData['height']})\">Left</a></th>";
+		echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '1', ${rackData['height']})\">Interior</a></th>";
+		echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '2', ${rackData['height']})\">Right</a></th></tr>\n";
 		renderAtomGrid ($rackData, $is_ro);
 		echo "<tr><th width='10%'>&nbsp;</th>";
-		echo "<th width='20%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '0', ${rackData['height']})\">Left</a></th>";
-		echo "<th width='50%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '1', ${rackData['height']})\">Interior</a></th>";
-		echo "<th width='20%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '2', ${rackData['height']})\">Right</a></th></tr>\n";
+		echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '0', ${rackData['height']})\">Left</a></th>";
+		echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '1', ${rackData['height']})\">Interior</a></th>";
+		echo "<th width='30%'><a href='javascript:;' onclick=\"toggleColumnOfAtoms('${rack_id}', '2', ${rackData['height']})\">Right</a></th></tr>\n";
 		echo "</table>\n<br>\n";
 		// Determine zero-u checkbox status.
 		// If form has been submitted, use form data, otherwise use DB data.
@@ -2271,8 +2310,8 @@ function renderRackSpaceForObject ($object_id)
 		else
 			$checked = in_array($rack_id, $parentRacks) ? 'checked' : '';
 		$disabled_text = $is_ro ? ' disabled' : '';
-		echo "<label for=zerou_${rack_id}>Zero-U:</label> <input type=checkbox ${checked} name=zerou_${rack_id} id=zerou_${rack_id}${disabled_text}>\n<br><br>\n";
-		echo "<input type='button' onclick='uncheckAll();' value='Uncheck all'>\n";
+		echo "<label>Zero-U: <input type=checkbox ${checked} name=zerou_${rack_id}${disabled_text}></label>\n<br><br>\n";
+		echo "<input type='button' onclick='uncheckAllAtoms({$rack_id}, {$rackData['height']});' value='Uncheck all'>\n";
 		echo '</center></td>';
 	}
 	echo "</tr></table>";
@@ -2305,16 +2344,16 @@ function renderMolecule ($mdata, $object_id)
 		$rackpack[$rack_id][$unit_no][$loclist[$atom]]['state'] = 'T';
 		$rackpack[$rack_id][$unit_no][$loclist[$atom]]['object_id'] = $object_id;
 	}
-	// now we have some racks to render
+	// Now there are some racks to render.
 	foreach ($rackpack as $rackData)
 	{
-		markAllSpans ($rackData);
 		echo "<table class=molecule cellspacing=0>\n";
 		echo "<caption>${rackData['name']}</caption>\n";
-		echo "<tr><th width='10%'>&nbsp;</th><th width='20%'>Left</th><th width='50%'>Interior</th><th width='20%'>Right</th></tr>\n";
+		echo "<tr><th width='10%'>&nbsp;</th><th width='30%'>Left</th><th width='30%'>Interior</th><th width='30%'>Right</th></tr>\n";
+		$reverse = considerConfiguredConstraint ($rackData, 'REVERSED_RACKS_LISTSRC');
 		for ($i = $rackData['height']; $i > 0; $i--)
 		{
-			echo "<tr><th>" . inverseRackUnit ($i, $rackData) . "</th>";
+			echo '<tr><th>' . inverseRackUnit ($rackData['height'], $i, $reverse) . '</th>';
 			for ($locidx = 0; $locidx < 3; $locidx++)
 			{
 				$state = $rackData[$i][$locidx]['state'];
@@ -2364,7 +2403,7 @@ function renderDepot ()
 				$problem = ($obj['has_problems'] == 'yes') ? 'has_problems' : '';
 
 				setEntityColors ($obj);
-				$class = getObjectClass ($obj, ($order == 'even' ? 'background:white;' : ''));
+				$class = getCellClass ($obj, 'list_plain');
 
 				echo "<tr class='row_${order} tdleft ${problem}${class}' valign=top><td>" . mkA ("<strong>${obj['dname']}</strong>", 'object', $obj['id']);
 				if (count ($obj['etags']))
@@ -2424,24 +2463,22 @@ END;
 // History viewer for history-enabled simple dictionaries.
 function renderObjectHistory ($object_id)
 {
-	$order = 'odd';
-	global $nextorder;
-	echo '<table border=0 cellpadding=5 cellspacing=0 align=center class=cooltable>';
-	echo '<tr><th>change time</th><th>author</th><th>name</th><th>visible label</th><th>asset no</th><th>has problems?</th><th>comment</th></tr>';
 	$result = usePreparedSelectBlade
 	(
 		'SELECT ctime, user_name, name, label, asset_no, has_problems, comment FROM ObjectHistory WHERE id=? ORDER BY ctime',
 		array ($object_id)
 	);
-	while ($row = $result->fetch (PDO::FETCH_NUM))
-	{
-		echo "<tr class=row_${order}><td>${row[0]}</td>";
-		for ($i = 1; $i <= 6; $i++)
-			echo "<td>" . $row[$i] . "</td>";
-		echo "</tr>\n";
-		$order = $nextorder[$order];
-	}
-	echo "</table><br>\n";
+	$columns = array
+	(
+		array ('th_text' => 'Change time', 'row_key' => 'ctime'),
+		array ('th_text' => 'Author', 'row_key' => 'user_name'),
+		array ('th_text' => 'Name', 'row_key' => 'name'),
+		array ('th_text' => 'Visible label', 'row_key' => 'label'),
+		array ('th_text' => 'Asset tag', 'row_key' => 'asset_no'),
+		array ('th_text' => 'Has problems?', 'row_key' => 'has_problems'),
+		array ('th_text' => 'Comment', 'row_key' => 'comment'),
+	);
+	renderTableViewer ($columns, $result->fetchAll (PDO::FETCH_ASSOC));
 }
 
 function renderRackspaceHistory ()
@@ -2534,22 +2571,16 @@ function renderIPSpaceRecords ($tree, $baseurl, $target = 0, $level = 1)
 				$decor['symbolurl'] = "${baseurl}&eid=${item['id']}&hl_net=1";
 			elseif ($item['symbol'] == 'node-expanded')
 				$decor['symbolurl'] = $baseurl . ($item['parent_id'] ? "&eid=${item['parent_id']}&hl_net=1" : '');
-			$tr_class = '';
-			$extrastyle = '';
-			if ($target == $item['id'] && isset ($_REQUEST['hl_net']))
-			{
-				if (isset ($item['colors'][0]))
-					$extrastyle = 'outline: 3px solid #0aff0a;';
-				else
-				{
-					$decor['tdclass'] = ' highlight';
-					$tr_class = $decor['tdclass'];
-				}
-
-			}
 
 			setEntityColors ($item);
-			$tr_class .= getObjectClass ($item, $extrastyle);
+			$class_context = ($target == $item['id'] && isset ($_REQUEST['hl_net'])) ? 'list_selected' : 'list_plain';
+			$tr_class = getCellClass ($item, $class_context);
+			// Use old-style highlighting for colourless networks.
+			if ($class_context == 'list_selected' && $tr_class == '')
+			{
+				$decor['tdclass'] = ' highlight';
+				$tr_class = $decor['tdclass'];
+			}
 
 			echo "<tr valign=top class=\"$tr_class\">";
 			printIPNetInfoTDs ($item, $decor);
@@ -2702,16 +2733,16 @@ function renderIPNewNetForm ()
 	}
 
 	// IP prefix validator
-	addJS ('js/live_validation.js');
+	addJSInternal ('js/live_validation.js');
 	$regexp = addslashes ($regexp);
 	// Heredoc, not nowdoc!
-	addJS (<<<"END"
+	addJSText (<<<"END"
 $(document).ready(function () {
 	$('form#add input[name="range"]').attr('match', '$regexp');
 	Validate.init();
 });
 END
-	, TRUE);
+	); // addJSText()
 
 	startPortlet ('Add new');
 	printOpFormIntro ('add');
@@ -2787,7 +2818,7 @@ function renderIPNetwork ($id)
 
 	// render summary portlet
 	$summary = array();
-	$summary['%% used'] = getRenderedIPNetCapacity ($range);
+	$summary['% used'] = getRenderedIPNetCapacity ($range);
 	$summary = getRenderedIPNetBacktrace ($range) + $summary;
 	if ($realm == 'ipv4net')
 	{
@@ -2951,7 +2982,7 @@ function renderIPv4NetworkPagination ($range, $page, $numpages)
 
 function renderIPv4NetworkAddresses ($range)
 {
-	global $pageno, $tabno, $aac_left;
+	global $aac_left;
 	$startip = ip4_bin2int ($range['ip_bin']);
 	$endip = ip4_bin2int (ip_last ($range));
 
@@ -3039,7 +3070,7 @@ function renderIPv4NetworkAddresses ($range)
 		{
 			echo $delim . $aac_left[$ref['type']];
 			echo makeIPAllocLink ($ip_bin, $ref, TRUE);
-			$delim = '; ';
+			$delim = ';<br/>';
 		}
 		if ($delim != '')
 			$delim = '<br>';
@@ -3068,7 +3099,7 @@ function renderIPv4NetworkAddresses ($range)
 	}
 	// end of iteration
 	if (permitted (NULL, NULL, 'set_reserve_comment'))
-		addJS ('js/inplace-edit.js');
+		addJSInternal ('js/inplace-edit.js');
 
 	echo "</table>";
 	if ($rendered_pager != '')
@@ -3164,7 +3195,7 @@ function renderIPv6NetworkAddresses ($netinfo)
 		{
 			echo $delim . $aac_left[$ref['type']];
 			echo makeIPAllocLink ($ip_bin, $ref, TRUE);
-			$delim = '; ';
+			$delim = ';<br/>';
 		}
 		if ($delim != '')
 			$delim = '<br>';
@@ -3204,12 +3235,11 @@ function renderIPv6NetworkAddresses ($netinfo)
 	}
 	echo "</table>";
 	if (permitted (NULL, NULL, 'set_reserve_comment'))
-		addJS ('js/inplace-edit.js');
+		addJSInternal ('js/inplace-edit.js');
 }
 
 function renderIPNetworkProperties ($id)
 {
-	global $pageno;
 	$netdata = spotEntity (etypeByPageno(), $id);
 	echo "<center><h1>${netdata['ip']}/${netdata['mask']}</h1></center>\n";
 	printOpFormIntro ('editRange');
@@ -3384,9 +3414,10 @@ function renderIPAddressAllocations ($ip_bin)
 	{
 		global $aat;
 
-		includeJQueryUI (TRUE);
+		includeJQueryUIJS();
+		includeJQueryUICSS();
 
-		addJS (<<<'JSEND'
+		addJSText (<<<'JSEND'
 			$(document).ready( function() {
 				$('[name="bond_name"]').autocomplete({
 					//minLength: 3,
@@ -3408,7 +3439,7 @@ function renderIPAddressAllocations ($ip_bin)
 				});
 			});
 JSEND
-		, TRUE);
+		); // addJSText()
 		printOpFormIntro ('add');
 		echo "<tr id='aid-new'><td>";
 		printImageHREF ('add', 'allocate', TRUE);
@@ -3933,26 +3964,56 @@ function renderSearchResults ($terms, $summary)
 // produced by amplifyCell(), the second is the R/O flag. When this flag is true all checkboxes
 // are become disabled
 
-function renderAtomGrid ($data, $is_ro=FALSE)
+function renderAtomGrid ($data, $is_ro = FALSE)
 {
+	markAllSpans ($data);
 	$rack_id = $data['id'];
-	addJS ('js/racktables.js');
+	$reverse = considerConfiguredConstraint ($data, 'REVERSED_RACKS_LISTSRC');
+	addJSInternal ('js/racktables.js');
 	for ($unit_no = $data['height']; $unit_no > 0; $unit_no--)
 	{
-		echo "<tr><th><a href='javascript:;' onclick=\"toggleRowOfAtoms('${rack_id}','${unit_no}')\">" . inverseRackUnit ($unit_no, $data) . "</a></th>";
+		$unit_label = inverseRackUnit ($data['height'], $unit_no, $reverse);
+		echo "<tr><th><a href='javascript:;' onclick=\"toggleRowOfAtoms('${rack_id}','${unit_no}')\">${unit_label}</a></th>";
 		for ($locidx = 0; $locidx < 3; $locidx++)
 		{
-			$name = "atom_${rack_id}_${unit_no}_${locidx}";
+			$show_checkbox = $data[$unit_no][$locidx]['enabled'];
+			if (! $show_checkbox && array_fetch ($data[$unit_no][$locidx], 'skipped', FALSE))
+				continue;
 			$state = $data[$unit_no][$locidx]['state'];
-			echo "<td class='atom state_${state}";
-			if (isset ($data[$unit_no][$locidx]['hl']))
-				echo $data[$unit_no][$locidx]['hl'];
-			echo "'>";
-			$disabled_text = $is_ro ? ' disabled' : '';
-			if (!($data[$unit_no][$locidx]['enabled'] === TRUE))
-				echo "<input type=checkbox id=${name} disabled>";
-			else
+			$td = array ('class' => $show_checkbox ? 'atom ' : '');
+			$td['class'] .= "state_{$state}";
+			if (array_key_exists ('hl', $data[$unit_no][$locidx]))
+			{
+				// Implies $state != 'F'.
+				$hl = $data[$unit_no][$locidx]['hl'];
+				$td['class'] .= $hl;
+				if ($state == 'T')
+				{
+					// Implies object_id is set and the value is not NULL.
+					$objectData = spotEntity ('object', $data[$unit_no][$locidx]['object_id']);
+					setEntityColors ($objectData);
+					$class_context = ($hl == 'h' || $hl == 'hw') ? 'atom_selected' : 'atom_plain';
+					$td['class'] .= getCellClass ($objectData, $class_context);
+				}
+			}
+			if (! $show_checkbox)
+				foreach (array ('colspan', 'rowspan') as $key)
+					if (array_key_exists ($key, $data[$unit_no][$locidx]))
+						$td[$key] = $data[$unit_no][$locidx][$key];
+
+			echo makeHtmlTag ('td', $td);
+			if ($show_checkbox)
+			{
+				// FIXME: This data requires a cleaner handover from markupAtomGrid()
+				// to be better suited for makeHtmlTag().
+				$name = "atom_${rack_id}_${unit_no}_${locidx}";
+				$disabled_text = $is_ro ? ' disabled' : '';
 				echo "<input type=checkbox" . $data[$unit_no][$locidx]['checked'] . " name=${name} id=${name}${disabled_text}>";
+			}
+			elseif ($state == 'T')
+				printObjectDetailsForRenderRack ($data[$unit_no][$locidx]['object_id']);
+			else
+				echo '&nbsp;';
 			echo '</td>';
 		}
 		echo "</tr>\n";
@@ -3963,9 +4024,7 @@ function renderCellList ($realm = NULL, $title = 'items', $do_amplify = FALSE, $
 {
 	if ($realm === NULL)
 		$realm = etypeByPageno();
-	global $nextorder;
 	global $pageno;
-	$order = 'odd';
 	$cellfilter = getCellFilter();
 	if (! isset ($celllist))
 		$celllist = applyCellFilter ($realm, $cellfilter);
@@ -3980,15 +4039,19 @@ function renderCellList ($realm = NULL, $title = 'items', $do_amplify = FALSE, $
 		if ($do_amplify)
 			array_walk ($celllist, 'amplifyCell');
 		startPortlet ($title . ' (' . count ($celllist) . ')');
-		echo "<table class=cooltable border=0 cellpadding=5 cellspacing=0 align=center>\n";
-		foreach ($celllist as $cell)
+		if (! count ($celllist))
+			echo '(none)';
+		else
 		{
-			echo "<tr class=row_${order}><td>";
-			renderCell ($cell);
-			echo "</td></tr>\n";
-			$order = $nextorder[$order];
+			echo '<table class="cooltable zebra0" border=0 cellpadding=5 cellspacing=0 align=center>';
+			foreach ($celllist as $cell)
+			{
+				echo '<tr><td>';
+				renderCell ($cell);
+				echo '</td></tr>';
+			}
+			echo '</table>';
 		}
-		echo '</table>';
 		finishPortlet();
 	}
 	echo "</td><td class='pcright ${pageno}'>";
@@ -4050,7 +4113,6 @@ function renderLocationPage ($location_id)
 
 function renderEditLocationForm ($location_id)
 {
-	global $pageno;
 	$location = spotEntity ('location', $location_id);
 	amplifyCell ($location);
 
@@ -4327,7 +4389,7 @@ function renderLivePTR ($id)
 	if ($can_import && $box_counter > 1)
 	{
 		echo '<tr><td colspan=3 align=center><input type=submit value="Import selected records"></td><td>';
-		addJS ('js/racktables.js');
+		addJSInternal ('js/racktables.js');
 		echo --$box_counter ? "<a href='javascript:;' onclick=\"toggleColumnOfAtoms(1, 1, ${box_counter})\">(toggle selection)</a>" : '&nbsp;';
 		echo '</td></tr>';
 	}
@@ -4381,7 +4443,6 @@ function buildTagCheckboxRows ($inputname, $preselect, $neg_preselect, $taginfo,
 		'input_class' => $level ? 'tag-cb' : 'tag-cb root',
 		'input_value' => $taginfo['id'],
 		'text_tagname' => $taginfo['tag'],
-		'color' => array_fetch ($taginfo, 'color', NULL),
 	);
 	$is_first_time = FALSE;
 	$prepared_inputname = $inputname;
@@ -4401,6 +4462,8 @@ function buildTagCheckboxRows ($inputname, $preselect, $neg_preselect, $taginfo,
 		$ret['input_extraattrs'] = 'disabled';
 		$ret['tr_class'] .= (array_key_exists ('kidc', $taginfo) && $taginfo['kidc'] == 0) ? ' trwarning' : ' trnull';
 	}
+	if (array_key_exists ('description', $taginfo) && $taginfo['description'] != '')
+		$ret['description'] = $taginfo['description'];
 
 	if ($refcnt_realm != '' && isset ($taginfo['refcnt'][$refcnt_realm]))
 		$ret['text_refcnt'] = $taginfo['refcnt'][$refcnt_realm];
@@ -4422,7 +4485,14 @@ function printTagCheckboxTable ($input_name, $preselect, $neg_preselect, $taglis
 			echo "<label><input type=checkbox class='${row['input_class']}' name='${row['input_name']}[]' value='${row['input_value']}'";
 			if (array_key_exists ('input_extraattrs', $row))
 				echo ' ' . $row['input_extraattrs'];
-			echo '> <span class="' . $tag_class . '">' . $row['text_tagname'] . '</span>';
+			if (! array_key_exists ('description', $row))
+				$tag_extraattrs = '';
+			else
+			{
+				$tag_extraattrs = 'title="' . stringForOption ($row['description'], 0) . '"';
+				$tag_class .= ' tag-descr';
+			}
+			echo "> <span class='${tag_class}' ${tag_extraattrs}>${row['text_tagname']}</span>";
 			if (array_key_exists ('text_refcnt', $row))
 				echo " <i>(${row['text_refcnt']})</i>";
 			echo '</label></td></tr>';
@@ -4432,7 +4502,7 @@ function printTagCheckboxTable ($input_name, $preselect, $neg_preselect, $taglis
 function renderEntityTagsPortlet ($title, $tags, $preselect, $realm)
 {
 	startPortlet ($title);
-	echo  '<a class="toggleTreeMode" style="display:none" href="#"></a>';
+	echo '<a class="toggleTreeMode" style="display:none" href="#"></a>';
 	echo '<table border=0 cellspacing=0 cellpadding=3 align=center class="tagtree">';
 	printOpFormIntro ('saveTags');
 	printTagCheckboxTable ('taglist', $preselect, array(), $tags, $realm);
@@ -4472,8 +4542,8 @@ function renderEntityTags ($entity_id)
 				$js_code .= "\n\t${tag['id']} : 1";
 			}
 			$js_code .= "\n});\n$(document).ready(tag_cb.compactTreeMode);";
-			addJS ('js/tag-cb.js');
-			addJS ($js_code, TRUE);
+			addJSInternal ('js/tag-cb.js');
+			addJSText ($js_code);
 		}
 	}
 
@@ -4488,8 +4558,8 @@ function renderEntityTags ($entity_id)
 // This one is going to replace the tag filter.
 function renderCellFilterPortlet ($preselect, $realm, $cell_list = array(), $bypass_params = array())
 {
-	addJS ('js/tag-cb.js');
-	addJS ('tag_cb.enableNegation()', TRUE);
+	addJSInternal ('js/tag-cb.js');
+	addJSText ('tag_cb.enableNegation()');
 
 	global $pageno, $tabno, $taglist;
 	$filterc =
@@ -4546,7 +4616,7 @@ function renderCellFilterPortlet ($preselect, $realm, $cell_list = array(), $byp
 		}
 
 		if (getConfigVar('SHRINK_TAG_TREE_ON_CLICK') == 'yes')
-			addJS ('tag_cb.enableSubmitOnClick()', TRUE);
+			addJSText ('tag_cb.enableSubmitOnClick()');
 	}
 	// predicates block
 	if (getConfigVar ('FILTER_SUGGEST_PREDICATES') == 'yes' || count ($preselect['pnamelist']))
@@ -4621,7 +4691,7 @@ function renderCellFilterPortlet ($preselect, $realm, $cell_list = array(), $byp
 			echo " <a href=\"#\" onclick=\"textifyCellFilter(this, '$text'); return false\">";
 			printImageHREF ('COPY', 'Make text expression from current filter');
 			echo '</a>';
-			addJS (<<<'END'
+			addJSText (<<<'END'
 function textifyCellFilter(target, text)
 {
 	var portlet = $(target).closest ('.portlet');
@@ -4630,8 +4700,7 @@ function textifyCellFilter(target, text)
 	portlet.find ('input[type="radio"][value="and"]').attr('checked','true');
 }
 END
-				, TRUE
-			);
+			); // addJSText()
 		}
 		echo '</td><td class=tdright>';
 		// "reset"
@@ -4809,7 +4878,7 @@ function renderFileManager ()
 		echo '<tr><th class=tdright>Tags:</td><td class=tdleft>';
 		printTagsPicker ();
 		echo '</td></tr>';
-		echo "<tr><th class=tdright>File:</th><td class=tdleft><input type='file' size='10' name='file'></td></td>";
+		echo "<tr><th class=tdright>File:</th><td class=tdleft><input type='file' size='10' name='file'></td></tr>";
 		echo "<tr><td colspan=2>";
 		printImageHREF ('CREATE', 'Upload file', TRUE);
 		echo '</td></tr>';
@@ -4893,11 +4962,18 @@ function renderFilesForEntity ($entity_id)
 	$files = getAllUnlinkedFiles ($entity_type, $entity_id);
 	if (count ($files))
 	{
+		$options = array();
+		foreach ($files as $file)
+		{
+			$options[$file['id']] = $file['name'];
+			if ($file['comment'] != '')
+				$options[$file['id']] .= ': ' . $file['comment'];
+		}
 		startPortlet ('Link existing (' . count ($files) . ')');
 		printOpFormIntro ('linkFile');
 		echo "<table border=0 cellspacing=0 cellpadding='5' align='center'>\n";
 		echo '<tr><td class=tdleft>';
-		printSelect ($files, array ('name' => 'file_id'));
+		printSelect ($options, array ('name' => 'file_id'));
 		echo '</td><td class=tdleft>';
 		printImageHREF ('ATTACH', 'Link file', TRUE);
 		echo '</td></tr></table>';
@@ -4923,7 +4999,6 @@ function renderFilesForEntity ($entity_id)
 		finishPortlet();
 	}
 }
-
 
 // Iterate over what findRouters() returned and output some text suitable for a TD element.
 function printRoutersTD ($rlist, $as_cell = 'yes')
@@ -5020,10 +5095,12 @@ function renderCell ($cell)
 		echo $override;
 		return;
 	}
+	setEntityColors ($cell);
+	$class = 'slbcell vscell ' . getCellClass ($cell, 'list_plain');
 	switch ($cell['realm'])
 	{
 	case 'user':
-		echo "<table class='slbcell vscell'><tr><td rowspan=3 width='5%'>";
+		echo "<table class='{$class}'><tr><td rowspan=3 width='5%'>";
 		printImageHREF ('USER');
 		echo '</td><td>' . mkA (stringForTD ($cell['user_name']), 'user', $cell['user_id']) . '</td></tr>';
 		if ($cell['user_realname'] != '')
@@ -5031,13 +5108,11 @@ function renderCell ($cell)
 		else
 			echo "<tr><td class=sparenetwork>no name</td></tr>";
 		echo '<td>';
-		if (!isset ($cell['etags']))
-			$cell['etags'] = getExplicitTagsOnly (loadEntityTags ('user', $cell['user_id']));
 		echo count ($cell['etags']) ? ("<small>" . serializeTags ($cell['etags']) . "</small>") : '&nbsp;';
 		echo "</td></tr></table>";
 		break;
 	case 'file':
-		echo "<table class='slbcell vscell'><tr><td rowspan=3 width='5%'>";
+		echo "<table class='{$class}'><tr><td rowspan=3 width='5%'>";
 		switch ($cell['type'])
 		{
 			case 'text/plain':
@@ -5077,7 +5152,7 @@ function renderCell ($cell)
 		break;
 	case 'ipv4net':
 	case 'ipv6net':
-		echo "<table class='slbcell vscell'><tr><td rowspan=3 width='5%'>";
+		echo "<table class='{$class}'><tr><td rowspan=3 width='5%'>";
 		printImageHREF ('NET');
 		echo '</td><td>' . mkCellA ($cell);
 		echo getRenderedIPNetCapacity ($cell);
@@ -5096,7 +5171,7 @@ function renderCell ($cell)
 		echo "</td></tr></table>";
 		break;
 	case 'rack':
-		echo "<table class='slbcell vscell'><tr><td rowspan=3 width='5%'>";
+		echo "<table class='{$class}'><tr><td rowspan=3 width='5%'>";
 		echo getRackThumbLink ($cell);
 		echo "</td><td>";
 		echo mkA ('<strong>' . stringForTD ($cell['name']) . '</strong>', 'rack', $cell['id']);
@@ -5107,7 +5182,7 @@ function renderCell ($cell)
 		echo "</td></tr></table>";
 		break;
 	case 'location':
-		echo "<table class='slbcell vscell'><tr><td rowspan=3 width='5%'>";
+		echo "<table class='{$class}'><tr><td rowspan=3 width='5%'>";
 		printImageHREF ('LOCATION');
 		echo "</td><td>";
 		echo mkA ('<strong>' . stringForTD ($cell['name']) . '</strong>', 'location', $cell['id']);
@@ -5118,7 +5193,7 @@ function renderCell ($cell)
 		echo "</td></tr></table>";
 		break;
 	case 'object':
-		echo "<table class='slbcell vscell'><tr><td rowspan=2 width='5%'>";
+		echo "<table class='{$class}'><tr><td rowspan=2 width='5%'>";
 		printImageHREF ('OBJECT');
 		echo '</td><td>';
 		echo mkA ('<strong>' . stringForLabel ($cell['dname']) . '</strong>', 'object', $cell['id']);
@@ -5133,8 +5208,14 @@ function renderCell ($cell)
 
 function renderRouterCell ($ip_bin, $ifname, $cell)
 {
+	setEntityColors ($cell);
+	// This block appears either on a plain page background (in which case both
+	// "list" and "atom" work about the same), or inside a network row, which
+	// uses a mix of zebra and tag colours (in which case "atom" works better
+	// as it overlays the router's tag colours without mixing).
+	$class = 'slbcell ' . getCellClass ($cell, 'atom_plain');
 	$dottedquad = ip_format ($ip_bin);
-	echo "<table class=slbcell><tr><td rowspan=3>${dottedquad}";
+	echo "<table class='${class}'><tr><td rowspan=3>${dottedquad}";
 	if ($ifname != '')
 		echo '@' . $ifname;
 	echo "</td>";
@@ -5311,8 +5392,8 @@ function showPathAndSearch ($pageno, $tabno)
 	echo '<input type=hidden name=page value=search>';
 	echo "<input type=hidden name=last_page value=$pageno>";
 	echo "<input type=hidden name=last_tab value=$tabno>";
-	// This input will be the first, if we don't add ports or addresses.
-	echo '<label>Search:<input type=text name=q size=20 value="';
+	// This input's implicit tabindex will be the lowest unless there is a form with ports or addresses on the page.
+	echo '<label><u>S</u>earch:<input accesskey="s" type=text name=q size=20 value="';
 	echo array_key_exists ('q', $sic) ? stringForTextInputValue ($sic['q']) : '';
 	echo '"></label></form></div>';
 
@@ -5388,7 +5469,7 @@ function dynamic_title_decoder_throwing ($path_position)
 			'params' => array()
 		);
 	case 'chapter':
-		$chapter_no = assertUIntArg ('chapter_no');
+		$chapter_no = genericAssertion ('chapter_no', 'natural');
 		$chapters = getChapterList();
 		$chapter_name = isset ($chapters[$chapter_no]) ? $chapters[$chapter_no]['name'] : 'N/A';
 		return array
@@ -5397,42 +5478,42 @@ function dynamic_title_decoder_throwing ($path_position)
 			'params' => array ('chapter_no' => $chapter_no)
 		);
 	case 'user':
-		$userinfo = spotEntity ('user', assertUIntArg ('user_id'));
+		$userinfo = spotEntity ('user', genericAssertion ('user_id', 'natural'));
 		return array
 		(
 			'name' => "Local user '" . $userinfo['user_name'] . "'",
 			'params' => array ('user_id' => $userinfo['user_id'])
 		);
 	case 'ipv4rspool':
-		$pool_info = spotEntity ('ipv4rspool', assertUIntArg ('pool_id'));
+		$pool_info = spotEntity ('ipv4rspool', genericAssertion ('pool_id', 'natural'));
 		return array
 		(
 			'name' => $pool_info['name'] == '' ? 'ANONYMOUS' : $pool_info['name'],
 			'params' => array ('pool_id' => $pool_info['id'])
 		);
 	case 'ipv4vs':
-		$vs_info = spotEntity ('ipv4vs', assertUIntArg ('vs_id'));
+		$vs_info = spotEntity ('ipv4vs', genericAssertion ('vs_id', 'natural'));
 		return array
 		(
 			'name' => $vs_info['dname'],
 			'params' => array ('vs_id' => $vs_info['id'])
 		);
 	case 'ipvs':
-		$vs_info = spotEntity ('ipvs', assertUIntArg ('vs_id'));
+		$vs_info = spotEntity ('ipvs', genericAssertion ('vs_id', 'natural'));
 		return array
 		(
 			'name' => $vs_info['name'],
 			'params' => array ('vs_id' => $vs_info['id'])
 		);
 	case 'object':
-		$object = spotEntity ('object', assertUIntArg ('object_id'));
+		$object = spotEntity ('object', genericAssertion ('object_id', 'natural'));
 		return array
 		(
 			'name' => $object['dname'],
 			'params' => array ('object_id' => $object['id'])
 		);
 	case 'location':
-		$location = spotEntity ('location', assertUIntArg ('location_id'));
+		$location = spotEntity ('location', genericAssertion ('location_id', 'natural'));
 		return array
 		(
 			'name' => $location['name'],
@@ -5442,14 +5523,14 @@ function dynamic_title_decoder_throwing ($path_position)
 		switch ($pageno)
 		{
 		case 'rack':
-			$rack = spotEntity ('rack', assertUIntArg ('rack_id'));
+			$rack = spotEntity ('rack', genericAssertion ('rack_id', 'natural'));
 			return array
 			(
 				'name' => $rack['row_name'],
 				'params' => array ('row_id' => $rack['row_id'], 'location_id' => $rack['location_id'])
 			);
 		case 'row':
-			$row_info = getRowInfo (assertUIntArg ('row_id'));
+			$row_info = getRowInfo (genericAssertion ('row_id', 'natural'));
 			return array
 			(
 				'name' => $row_info['name'],
@@ -5459,7 +5540,7 @@ function dynamic_title_decoder_throwing ($path_position)
 			break;
 		}
 	case 'rack':
-		$rack_info = spotEntity ('rack', assertUIntArg ('rack_id'));
+		$rack_info = spotEntity ('rack', genericAssertion ('rack_id', 'natural'));
 		return array
 		(
 			'name' => $rack_info['name'],
@@ -5479,17 +5560,17 @@ function dynamic_title_decoder_throwing ($path_position)
 				'params' => array()
 			);
 	case 'file':
-		$file = spotEntity ('file', assertUIntArg ('file_id'));
+		$file = spotEntity ('file', genericAssertion ('file_id', 'natural'));
 		return array
 		(
-			'name' => niftyString ($file['name'], 30, FALSE),
+			'name' => stringForOption ($file['name'], 30),
 			'params' => array ('file_id' => $_REQUEST['file_id'])
 		);
 	case 'ipaddress':
 		$address = getIPAddress (ip_parse ($_REQUEST['ip']));
 		return array
 		(
-			'name' => niftyString ($address['ip'] . ($address['name'] != '' ? ' (' . $address['name'] . ')' : ''), 50, FALSE),
+			'name' => stringForOption ($address['ip'] . ($address['name'] != '' ? ' (' . $address['name'] . ')' : ''), 50),
 			'params' => array ('ip' => $address['ip'])
 		);
 	case 'ipv4net':
@@ -5510,7 +5591,7 @@ function dynamic_title_decoder_throwing ($path_position)
 				);
 				return ($ret);
 			default:
-				$net = spotEntity ($path_position, assertUIntArg ('id'));
+				$net = spotEntity ($path_position, genericAssertion ('id', 'natural'));
 				return array
 				(
 					'name' => $net['ip'] . '/' . $net['mask'],
@@ -5559,7 +5640,7 @@ function dynamic_title_decoder_throwing ($path_position)
 			throw new EntityNotFoundException ('VLAN domain', $vdom_id);
 		return array
 		(
-			'name' => "domain '" . niftyString ($vdlist[$vdom_id], 40, FALSE) . "'",
+			'name' => "domain '" . stringForOption ($vdlist[$vdom_id], 40) . "'",
 			'params' => array ('vdom_id' => $vdom_id)
 		);
 	case 'vlan':
@@ -5572,7 +5653,7 @@ function dynamic_title_decoder_throwing ($path_position)
 		$vst = spotEntity ('vst', $sic['vst_id']);
 		return array
 		(
-			'name' => "template '" . niftyString ($vst['description'], 40, FALSE) . "'",
+			'name' => "template '" . stringForOption ($vst['description'], 40) . "'",
 			'params' => array ('vst_id' => $sic['vst_id'])
 		);
 	case 'dqueue':
@@ -5682,7 +5763,7 @@ function renderDiscoveredNeighbors ($object_id)
 	// scroll to selected port
 	if (isset ($_REQUEST['hl_port_id']))
 	{
-		assertUIntArg('hl_port_id');
+		genericAssertion ('hl_port_id', 'natural');
 		$hl_port_id = intval ($_REQUEST['hl_port_id']);
 		addAutoScrollScript ("port-$hl_port_id");
 	}
@@ -5842,7 +5923,7 @@ function renderDiscoveredNeighbors ($object_id)
 	}
 	echo '</table></form>';
 
-	addJS (<<<'END'
+	addJSText (<<<'END'
 $(document).ready(function () {
 	$('#cb-toggle').click(function (event) {
 		var list = $('.cb-makelink');
@@ -5853,7 +5934,6 @@ $(document).ready(function () {
 	}).triggerHandler('click');
 });
 END
-		, TRUE
 	);
 }
 
@@ -6005,14 +6085,14 @@ function formatAttributeValue ($record, $objtype_id)
 function addAutoScrollScript ($anchor_name)
 {
 	// Heredoc, not nowdoc!
-	addJS (<<<"END"
+	addJSText (<<<"END"
 $(document).ready(function() {
 	var anchor = document.getElementsByName('$anchor_name')[0];
 	if (anchor)
 		anchor.scrollIntoView(false);
 });
 END
-	, TRUE);
+	);
 }
 
 //
@@ -6055,7 +6135,7 @@ function allObjectLogs ()
 	(
 		array ('th_text' => 'Object', 'th_class' => 'tdleft', 'row_key' => 0, 'td_escape' => FALSE, 'td_class' => 'tdleft'),
 		array ('th_text' => 'Date/user', 'th_class' => 'tdleft', 'row_key' => 1, 'td_escape' => FALSE, 'td_class' => 'tdleft'),
-		array ('th_text' => getImageHREF ('text'), 'th_class' => 'tdcenter', 'row_key' => 2, 'td_class' => 'logentry'),
+		array ('th_text' => getImageHREF ('text'), 'th_class' => 'tdcenter', 'row_key' => 2, 'td_escape' => FALSE, 'td_class' => 'logentry'),
 	);
 	$rows = array();
 	foreach ($logs as $row)
@@ -6083,7 +6163,7 @@ function allObjectLogs ()
 		$rows[] = array
 		(
 			mkA ($text, $entity, $row['object_id'], 'log'),
-			$row['date'] . '<br>' . $row['user'],
+			$row['date'] . '<br>' . stringForLabel ($row['user'], 0),
 			string_insert_hrefs (htmlspecialchars ($row['content'], ENT_NOQUOTES)),
 		);
 	}
@@ -6211,7 +6291,7 @@ function switchportInfoJS($object_id)
 	(
 		'link' => array ('op' => 'get_link_status', 'gw' => 'getportstatus'),
 		'conf' => array ('op' => 'get_port_conf', 'gw' => 'get8021q'),
-		'mac' =>  array ('op' => 'get_mac_list', 'gw' => 'getmaclist'),
+		'mac' => array ('op' => 'get_mac_list', 'gw' => 'getmaclist'),
 		'portmac' => array ('op' => 'get_port_mac_list', 'gw' => 'getportmaclist'),
 	);
 	$breed = detectDeviceBreed ($object_id);
@@ -6224,11 +6304,11 @@ function switchportInfoJS($object_id)
 		)
 			$allowed_ops[] = $prefix;
 
-	addJS ('js/jquery.thumbhover.js');
-	addCSS ('css/jquery.contextmenu.css');
-	addJS ('js/jquery.contextmenu.js');
-	addJS ("enabled_elements = " . json_encode ($allowed_ops), TRUE);
-	addJS ('js/portinfo.js');
+	addJSInternal ('js/jquery.thumbhover.js');
+	addCSSInternal ('css/jquery.contextmenu.css');
+	addJSInternal ('js/jquery.contextmenu.js');
+	addJSText ("enabled_elements = " . json_encode ($allowed_ops));
+	addJSInternal ('js/portinfo.js');
 }
 
 function renderIPAddressLog ($ip_bin)
@@ -6404,7 +6484,7 @@ function renderTableViewer ($columns, $rows, $params = NULL)
 			{
 				echo '<td';
 				if (array_key_exists ('td_class', $col))
-					echo ' class=' . $col['td_class'];
+					echo " class='{$col['td_class']}'";
 				echo '>';
 				$text = $row[$col['row_key']];
 				if (array_fetch ($col, 'td_escape', TRUE))

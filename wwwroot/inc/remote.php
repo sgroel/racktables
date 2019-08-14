@@ -118,6 +118,25 @@ $breedfunc = array
 	'iosxr4-getportstatus-main'=> 'iosxr4ReadInterfaceStatus',
 	'ucs-xlatepushq-main'      => 'ucsTranslatePushQueue',
 	'ucs-getinventory-main'    => 'ucsReadInventory',
+	'hpprocurveN1178-getlldpstatus-main' => 'hpprocurveN1178ReadLLDPStatus',
+	'hpprocurveN1178-get8021q-main'      => 'hpprocurveN1178Read8021QConfig',
+	'hpprocurveN1178-getportstatus-main' => 'hpprocurveN1178ReadInterfaceStatus',
+	'hpprocurveN1178-getmaclist-main'    => 'hpprocurveN1178ReadMacList',
+	'hpprocurveN1178-getportmaclist-main'=> 'hpprocurveN1178ReadMacList',
+	'hpprocurveN1178-xlatepushq-main'    => 'hpprocurveN1178TranslatePushQueue',
+	'hpprocurveN1178-getallconf-main'    => 'hpprocurveN1178SpotConfigText',
+	'ios15-getcdpstatus-main'  => 'ios12ReadCDPStatus',
+	'ios15-getlldpstatus-main' => 'ios15ReadLLDPStatus',
+	'ios15-get8021q-main'      => 'ios12ReadVLANConfig',
+	'ios15-get8021q-swports'   => 'ios12ReadSwitchPortList',
+	'ios15-get8021q-top'       => 'ios12ScanTopLevel',
+	'ios15-get8021q-readport'  => 'ios12PickSwitchportCommand',
+	'ios15-get8021q-readvlan'  => 'ios12PickVLANCommand',
+	'ios15-getportstatus-main' => 'ciscoReadInterfaceStatus',
+	'ios15-getmaclist-main'    => 'ios12ReadMacList',
+	'ios15-getportmaclist-main'=> 'ios12ReadMacList',
+	'ios15-xlatepushq-main'    => 'ios15TranslatePushQueue',
+	'ios15-getallconf-main'    => 'ios12SpotConfigText',
 );
 
 define ('MAX_GW_LOGSIZE', 1024*1024); // do not store more than 1 MB of log data
@@ -132,15 +151,15 @@ $breed_by_swcode = array
 	256  => 'ios12', // IOS 12.2 (router OS)
 	257  => 'ios12', // IOS 12.3 (router OS)
 	258  => 'ios12', // IOS 12.4 (router OS)
-	1901 => 'ios12', // IOS 15.0 (switch)
-	2082 => 'ios12', // IOS 15.1 (switch)
-	2142 => 'ios12', // IOS 15.2 (switch)
-	2667 => 'ios12', // IOS 15.0 (router OS)
-	1963 => 'ios12', // IOS 15.1 (router OS)
-	2668 => 'ios12', // IOS 15.2 (router OS)
-	2669 => 'ios12', // IOS 15.3 (router OS)
-	2670 => 'ios12', // IOS 15.4 (router OS)
-	2671 => 'ios12', // IOS 15.5 (router OS)
+	1901 => 'ios15', // IOS 15.0 (switch)
+	2082 => 'ios15', // IOS 15.1 (switch)
+	2142 => 'ios15', // IOS 15.2 (switch)
+	2667 => 'ios15', // IOS 15.0 (router OS)
+	1963 => 'ios15', // IOS 15.1 (router OS)
+	2668 => 'ios15', // IOS 15.2 (router OS)
+	2669 => 'ios15', // IOS 15.3 (router OS)
+	2670 => 'ios15', // IOS 15.4 (router OS)
+	2671 => 'ios15', // IOS 15.5 (router OS)
 	963  => 'nxos4', // NX-OS 4.0
 	964  => 'nxos4', // NX-OS 4.1
 	1365 => 'nxos4', // NX-OS 4.2
@@ -176,8 +195,18 @@ $breed_by_swcode = array
 	1675 => 'eos4',  // Arista EOS 4
 	1759 => 'iosxr4', // Cisco IOS XR 4.2
 	1786 => 'ros11', // Marvell ROS 1.1
-
+	3720 => 'hpprocurveN1178', // HP Procurve 11
 	//... linux items added by the loop below
+);
+
+$shorten_by_breed = array (
+	'ios12' => 'ios12ShortenIfName_real',
+	'ios15' => 'ios15ShortenIfName_real',
+	'nxos4' => 'nxos4ShortenIfName',
+	'vrp53' => 'vrp5xShortenIfName',
+	'vrp55' => 'vrp5xShortenIfName',
+	'vrp85' => 'vrp85ShortenIfName',
+	'iosxr4' => 'iosxr4ShortenIfName',
 );
 
 $breed_by_hwcode = array (
@@ -318,7 +347,7 @@ function translateDeviceCommands ($object_id, $crq, $vlan_names = NULL)
 // returns an array of command-line parameters to $ref_settings[0]['protocol']
 // this function is called by callHook, so you can override/chain it
 // to customize command-line options to particular gateways.
-function makeGatewayParams ($object_id, $tolerate_remote_errors, /*array(&)*/$ref_settings, /*array(&)*/$ref_commands)
+function makeGatewayParams ($object_id, /*array(&)*/$ref_settings, /*array(&)*/$ref_commands)
 {
 	$ret = array();
 	$settings = &$ref_settings[0];
@@ -459,7 +488,7 @@ function queryTerminal ($object_id, $commands, $tolerate_remote_errors = TRUE)
 			$protocol = 'netcat'; // default is netcat mode
 			$prompt = '^(Login|Username|Password|Please Enter Password): $|^\S+[>#]$'; // set the prompt in case user would like to specify telnet protocol
 			$commands = "skip-page-display\n" . $commands;
-			# using ssh and sshnokey we'll always receive 'Connection to $ip closed by remote host.' upon exit
+			# Using ssh and sshnokey will always result in 'Connection to $ip closed by remote host.' upon exit.
 			# let's hide the warnings
 			$tolerate_remote_errors = TRUE;
 			$hide_warnings = TRUE;
@@ -512,6 +541,15 @@ function queryTerminal ($object_id, $commands, $tolerate_remote_errors = TRUE)
 			$protocol = 'netcat';
 			$commands = "disable clipaging\n" . $commands;
 			break;
+		case 'hpprocurveN1178':
+			$protocol = 'sshnokey';
+			$prompt = '(Login|[Uu]sername|[Pp]assword): $|Press any key to continue(\e\[\??\d+(;\d+)*[A-Za-z])*$|[#>].*$';
+			# Console emulator should be set to 'none' to avoid special characters to be sent by stupid default VT100!!!
+			$commands = "configure\nconsole local-terminal none\nexit\nno page\n" . $commands . "configure\nconsole local-terminal vt100\nend\nexit\nexit\ny\n";
+			break;
+		case 'ios15':
+			$commands = "terminal length 0\nterminal no monitor\n" . $commands;
+			break;
 	}
 	if (! isset ($protocol))
 		$protocol = 'netcat';
@@ -532,17 +570,18 @@ function queryTerminal ($object_id, $commands, $tolerate_remote_errors = TRUE)
 		'prompt_delay' => 0.001, # 1ms
 		'sudo_user' => NULL,
 		'identity_file' => NULL,
+		'tolerate_remote_errors' => $tolerate_remote_errors,
 	);
 
 	// override default settings
 	if (is_callable ('terminal_settings'))
 		call_user_func ('terminal_settings', $objectInfo, array (&$settings));
 	// make gateway-specific CLI params out of settings
-	$params = callHook ('makeGatewayParams', $object_id, $tolerate_remote_errors, array (&$settings), array (&$commands));
+	$params = callHook ('makeGatewayParams', $object_id, array (&$settings), array (&$commands));
 	// call gateway
 	$ret_code = callScript ($settings['protocol'], $params, $commands, $out, $errors);
 
-	if (substr($settings['protocol'],0,3) != 'ssh' || ! $tolerate_remote_errors)
+	if (substr($settings['protocol'],0,3) != 'ssh' || ! $settings['tolerate_remote_errors'])
 	{
 		if ($errors != '')
 			throw new RTGatewayError ("${settings['protocol']} error: " . rtrim ($errors));
@@ -607,7 +646,7 @@ function callScript ($gwname, $params, $in, &$out, &$errors)
 		$cwd
 	);
 	if (! is_resource ($child))
-		throw new RTGatewayError ("cant execute $binary");
+		throw new RTGatewayError ("failed to execute $binary");
 	$script_child_res = $child;
 
 	$buff_size = 4096;
@@ -668,7 +707,7 @@ function callScript ($gwname, $params, $in, &$out, &$errors)
 			$gateway_log = substr ($gateway_log, -MAX_GW_LOGSIZE);
 
 	}
-	// we need to destroy our global link to the resource here.
+	// The global link to the resource needs to be destroyed here.
 	// PHP's proc_close implementation does nothing itself: it only returns
 	// the value saved by the resource destructor. If the resource was not
 	// destroyed (refcnt > 0), the return value is incorrect.
@@ -723,11 +762,12 @@ function setDevice8021QConfig ($object_id, $pseudocode, $vlan_names)
 // (i.e. some function in deviceconfig.php)
 function shortenIfName ($if_name, $breed = NULL, $object_id = NULL)
 {
-	// this is a port name we invented in snmp.php, do not translate it
+	// This is a port name invented in snmp.php, do not translate it.
 	if (preg_match ('/^AC-in(-[12])?$/', $if_name))
 		return $if_name;
 
 	global $current_query_breed;
+	global $shorten_by_breed;
 	if (! isset ($breed))
 	{
 		if (isset ($object_id))
@@ -736,22 +776,10 @@ function shortenIfName ($if_name, $breed = NULL, $object_id = NULL)
 			$breed = $current_query_breed;
 	}
 
-	switch ($breed)
-	{
-		case 'ios12':
-			return ios12ShortenIfName_real ($if_name);
-		case 'nxos4':
-			return nxos4ShortenIfName ($if_name);
-		case 'vrp53':
-		case 'vrp55':
-			return vrp5xShortenIfName ($if_name);
-		case 'vrp85':
-			return vrp85ShortenIfName ($if_name);
-		case 'iosxr4':
-			return iosxr4ShortenIfName ($if_name);
-	}
-	// default case is outside of switch()
-	return ios12ShortenIfName ($if_name);
+	if (isset ($breed) and isset ($shorten_by_breed[$breed]))
+		return call_user_func ($shorten_by_breed[$breed], $if_name);
+	else
+		return ios12ShortenIfName ($if_name);
 }
 
 function ios12ShortenIfName_real ($ifname)

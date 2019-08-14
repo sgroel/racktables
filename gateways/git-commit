@@ -9,61 +9,313 @@
 #
 # $params = array
 # (
-#   'racktables_pseudo_user',
-#   '/path/to/repository',
-#   'path/to/file/within/the/repository',
-#   'commit message text',
+#   'u' => 'racktables_pseudo_user',
+#   'r' => '/path/to/repository',
+#   'o' => 'pull', # or 'commit' or 'push' or unset
+#   'f' => 'path/to/file/within/the/repository/file.txt',
+#   'm' => 'commit message text',
+#   'M' => 'append',
+#   'a' => 'Some Author <user@example.org>',
+#   'd' => '<git author date>',
+#   'v' => 'normal',
 # );
 # $rc = callScript ('git-commit', $params, $file_contents, $stdout, $stderr);
 #
 # The meaning of $stdout and $stderr is the same as in queryTerminal().
-# The specified repository must exist and the specified pseudo-user must be
-# able to write to the repository and run "git pull", "git commit" and "git push"
-# without any user interaction (i.e. the git remote must be on a local
-# filesystem or be configured to use SSH keys).
 #
 # This script uses sudo to switch between the pseudo-users and requires an
 # entry in sudoers along the following lines:
 # httpduser ALL=(racktablesuser) NOPASSWD:/path/to/racktables/gateways/git-commit
 
-[ $# -eq 4 ] || {
-	echo "Usage: $0 <pseudo-user> <repo dir> <path to file> <commit message>" >&2
+readonly THISFILE=`basename "$0"`
+
+print_usage_and_exit_0()
+{
+	cat <<ENDOFMESSAGE
+Usage: $THISFILE -u <u> -r <r> -o pull [-v <v>]
+   or: $THISFILE -u <u> -r <r> -o commit -f <f> [<commit-options>] [-v <v>]
+   or: $THISFILE -u <u> -r <r> -o push [-v <v>]
+   or: $THISFILE -u <u> -r <r> [-o full] -f <f> [<commit-options>] [-v <v>]
+   or: $THISFILE -h
+
+Commit options: [-m <msg> [-M <M>]] [-a <author>] [-d <date>]
+
+  -u <username>    A pseudo-user to work as (this script will try to sudo
+                     itself if the current user is not the same). The user
+                     must be able to write to the repository filesystem and to
+                     run "git pull" and "git push" without any user
+                     interaction (i.e. the git remote must be on a local
+                     filesystem or be configured to use SSH keys).
+  -r <repodir>     An absolute path within an existing git repository (does
+                     not need to be the top directory of the repository).
+  -o pull          Only run git-pull(1).
+  -o commit        Only replace the file contents with stdin and run
+                     git-commit(1) if the contents has changed.
+  -o push          Only run git-push(1).
+  -o full          This is the default and is the same as running the three
+                     actions above one after another, except the push will be
+                     skipped if the commit was skipped.
+  -f <filepath>    A relative path to a file within the repository (if the
+                     file or the path do not exist, the missing component(s)
+                     will be created automatically). The path includes the
+                     file name and is relative to the <repodir> above.
+  -m <msg>         An optional custom commit message instead of the default
+                     one. The message may be a multi-line string, in which
+                     case it should follow the format recommended in the
+                     "discussion" section of the git-commit(1) man page.
+  -M replace       This is the default. If -m <msg> is specified and is not an
+                     empty string, <msg> will be used as the full commit
+                     message (both the one-line summary and the multi-line
+                     description, if present) instead of the default
+                     single-line summary.
+  -M append        If -m <msg> is specified, <msg> will be appended to the
+                     default single-line summary. This will extend the summary
+                     and/or add a description (supposedly with an empty line
+                     between the two), given proper amount and placement of
+                     newlines in <msg>.
+  -a <author>      An optional commit author if different from the committer.
+                     Regardless of this option, the committer will be either
+                     the default (which might or might not work) or the one
+                     previously configured with git-config(1).
+  -d <date>        An optional author date if different from the committer
+                     date, see the "date formats" section of the git-commit(1)
+                     man page. Regardless of this option, the committer date
+                     will be the current date.
+  -v quiet         This is the default. Run the requested git command(s) with
+                     --quiet. Any errors will still be printed to stderr.
+  -v verbose       Run the requested git command(s) with --verbose.
+  -v normal        Run the requested git command(s) without --quiet and
+                     without --verbose.
+  -h               Print this message and exit.
+ENDOFMESSAGE
+	exit 0
+}
+
+mention_usage_and_exit_1()
+{
+	echo "Try '$THISFILE -h' for more information." >&2
 	exit 1
 }
 
-SUDOUSER=$1
-REPODIR="$2"
-FILEPATH="$3"
-COMMITMSG="$4"
-
-[ `whoami` = "$SUDOUSER" ] || {
-	sudo --non-interactive --set-home --user=$SUDOUSER -- "$0" "$@"
-	exit $?
+print_error()
+{
+	echo "$THISFILE: ${1:?}" >&2
 }
 
-cd "$REPODIR"
-git pull --quiet || {
-	echo "Failed to run 'git pull' (rc=$?)" >&2
-	exit 2
+assert_nonempty_option()
+{
+	if [ -z "$2" ]; then
+		print_error "missing option $1"
+		mention_usage_and_exit_1
+	fi
 }
 
-# New file contents is on stdin.
-cat > "$FILEPATH" || {
-	echo "Failed to write new file contents, trying to roll back." >&2
-	git checkout --quiet -- "$FILEPATH" || {
-		echo "Failed to run 'git checkout' after a write error." >&2
-		exit 4
+git_pull_or_exit()
+{
+	git pull $VLEVEL || {
+		print_error "failed to run 'git pull' (rc=$?)"
+		exit 2
 	}
-	exit 3
 }
 
-git diff --quiet -- "$FILEPATH" || {
-	git add -- "$FILEPATH"
-	printf "update %s\n\n%s\n" "$FILEPATH" "$COMMITMSG" | git commit --quiet --file=- -- "$FILEPATH"
-	git push --quiet || {
-		echo "Failed to run 'git push' (rc=$?)" >&2
+git_push_or_exit()
+{
+	git push $VLEVEL || {
+		print_error "failed to run 'git push' (rc=$?)"
 		exit 5
 	}
 }
+
+git_commit_or_exit()
+{
+	assert_nonempty_option -f "$FILEPATH"
+	local readonly REALPATH=`realpath --canonicalize-missing --relative-to="$REPODIR" "$FILEPATH"`
+	if [ "$REALPATH" != "${REALPATH#../}" ]; then
+		print_error "file path '$FILEPATH' is outside of the repository directory '$REPODIR'"
+		exit 12
+	fi
+	# git processes the path to the file automatically, but the shell
+	# redirection obviously does not.
+	local readonly DIRNAME=`dirname "$FILEPATH"`
+	if [ ! -d "$DIRNAME" ]; then
+		mkdir -p "$DIRNAME" || {
+			print_error "failed to create missing directory '$DIRNAME'"
+			exit 11
+		}
+	fi
+
+	# New file contents is on stdin.
+	cat > "$FILEPATH" || {
+		print_error "failed to write new file contents, trying to roll back."
+		git checkout --quiet -- "$FILEPATH" || {
+			print_error "failed to run 'git checkout' after a write error."
+			exit 4
+		}
+		exit 3
+	}
+
+	local message
+	# git-diff exits with 0 if the file is not in the repository.
+	if ! git cat-file -e HEAD:"$FILEPATH" 2>/dev/null; then
+		message="add $FILEPATH"
+	else
+		git diff --quiet -- "$FILEPATH" && return # in the repository and has not changed
+		message="update $FILEPATH"
+	fi
+
+	git add -- "$FILEPATH" || {
+		print_error "failed to run 'git add'"
+		exit 9
+	}
+	# getopts validates the value of MESSAGEMODE.
+	case "$MESSAGEMODE" in
+	replace)
+		[ -n "$COMMITMSG" ] && message="$COMMITMSG"
+		;;
+	append)
+		# No space in between -- the appended part may skip straight to
+		# the commit description.
+		message="$message$COMMITMSG"
+		;;
+	esac
+	git commit $VLEVEL \
+		--message="$message" \
+		${AUTHOR:+--author="$AUTHOR"} \
+		${COMMITDATE:+--date="$COMMITDATE"} \
+		-- "$FILEPATH" || \
+	{
+		print_error "failed to run 'git commit', trying to roll back."
+		git reset --quiet -- "$FILEPATH" || {
+			print_error "failed to run 'git reset'"
+			exit 13
+		}
+		git checkout --quiet -- "$FILEPATH" || {
+			print_error "failed to run 'git checkout'"
+			exit 14
+		}
+		exit 10
+	}
+	[ "$1" = "and_push" ] && git_push_or_exit
+}
+
+# Both callScript() and GNU getopt support both short and long option formats.
+# However, use of any getopt normally implies shift, which unsets the $@
+# special parameter and makes it impossible or difficult to pass properly
+# quoted option values to self via sudo. The getopts shell builtin (available
+# in bash, dash and other shells) depends on its own state variables rather
+# than shifting, but supports short options only.
+#
+# The only easy way to use any long options in this script would be to make
+# the username a fixed argument, which could be tested before the getopt
+# processing, but that would not look consistent. Hence this script uses
+# getopts and short options for all arguments.
+
+ONLYRUN=full
+VLEVEL='--quiet'
+MESSAGEMODE=replace
+while getopts u:r:o:f:m:M:a:d:v:h opt; do
+	case "$opt" in
+	u)
+		SUDOUSER="$OPTARG"
+		;;
+	r)
+		REPODIR="$OPTARG"
+		;;
+	o)
+		case "$OPTARG" in
+		pull|commit|push|full)
+			ONLYRUN="$OPTARG"
+			;;
+		*)
+			print_error "'$OPTARG' is not a valid value for -$opt"
+			mention_usage_and_exit_1
+			;;
+		esac
+		;;
+	f)
+		FILEPATH="$OPTARG"
+		;;
+	m)
+		COMMITMSG="$OPTARG"
+		;;
+	M)
+		case "$OPTARG" in
+		replace|append)
+			MESSAGEMODE="$OPTARG"
+			;;
+		*)
+			print_error "'$OPTARG' is not a valid value for -$opt"
+			mention_usage_and_exit_1
+			;;
+		esac
+		;;
+	a)
+		AUTHOR="$OPTARG"
+		;;
+	d)
+		COMMITDATE="$OPTARG"
+		;;
+	v)
+		case "$OPTARG" in
+		quiet)
+			VLEVEL='--quiet'
+			;;
+		normal)
+			VLEVEL=
+			;;
+		verbose)
+			VLEVEL='--verbose'
+			;;
+		*)
+			print_error "'$OPTARG' is not a valid value for -$opt"
+			mention_usage_and_exit_1
+			;;
+		esac
+		;;
+	h)
+		print_usage_and_exit_0
+		;;
+	*)
+		mention_usage_and_exit_1
+		;;
+	esac
+done
+
+assert_nonempty_option -u "$SUDOUSER"
+[ `whoami` = "$SUDOUSER" ] || {
+	sudo --non-interactive --set-home --user="$SUDOUSER" -- "$0" "$@"
+	exit $?
+}
+
+assert_nonempty_option -r "$REPODIR"
+# Do not suppress the error message from cd, which may be more useful
+# (e.g. permission denied) than a hard-coded default message.
+cd "$REPODIR" || exit 6
+which git >/dev/null || {
+	print_error "git is not available"
+	exit 7
+}
+readonly INTREE=`git rev-parse --is-inside-work-tree 2>/dev/null`
+[ "$INTREE" = 'true' ] || {
+	print_error "the directory '$REPODIR' exists, but is not within a git repository"
+	exit 8
+}
+
+# The getopts loop above validates the value of ONLYRUN.
+case "$ONLYRUN" in
+pull)
+	git_pull_or_exit
+	;;
+commit)
+	git_commit_or_exit
+	;;
+push)
+	git_push_or_exit
+	;;
+full)
+	git_pull_or_exit
+	git_commit_or_exit and_push
+	;;
+esac
 
 exit 0

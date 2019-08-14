@@ -41,8 +41,8 @@ function plugin_munin_init ()
 		'action' => 'INSERT',
 		'arglist' => array
 		(
-			array ('url_argname' => 'object_id', 'assertion' => 'uint'),
-			array ('url_argname' => 'server_id', 'assertion' => 'uint'),
+			array ('url_argname' => 'object_id', 'assertion' => 'natural'),
+			array ('url_argname' => 'server_id', 'assertion' => 'natural'),
 			array ('url_argname' => 'graph', 'assertion' => 'string'),
 			array ('url_argname' => 'caption', 'assertion' => 'string0'),
 		),
@@ -53,8 +53,8 @@ function plugin_munin_init ()
 		'action' => 'DELETE',
 		'arglist' => array
 		(
-			array ('url_argname' => 'object_id', 'assertion' => 'uint'),
-			array ('url_argname' => 'server_id', 'assertion' => 'uint'),
+			array ('url_argname' => 'object_id', 'assertion' => 'natural'),
+			array ('url_argname' => 'server_id', 'assertion' => 'natural'),
 			array ('url_argname' => 'graph', 'assertion' => 'string'),
 		),
 	);
@@ -73,7 +73,7 @@ function plugin_munin_init ()
 		'action' => 'DELETE',
 		'arglist' => array
 		(
-			array ('url_argname' => 'id', 'assertion' => 'uint'),
+			array ('url_argname' => 'id', 'assertion' => 'natural'),
 		),
 	);
 	$opspec_list['munin-servers-upd'] = array
@@ -86,7 +86,7 @@ function plugin_munin_init ()
 		),
 		'where_arglist' => array
 		(
-			array ('url_argname' => 'id', 'assertion' => 'uint'),
+			array ('url_argname' => 'id', 'assertion' => 'natural'),
 		),
 	);
 
@@ -158,9 +158,9 @@ function plugin_munin_dispatchImageRequest ()
 		$graph = genericAssertion ('graph', 'string');
 		if (! array_key_exists ($graph, getMuninGraphsForObject (getBypassValue())))
 			throw new InvalidRequestArgException ('graph', $graph);
-		proxyMuninRequest (genericAssertion ('server_id', 'uint'), $graph);
+		proxyMuninRequest (genericAssertion ('server_id', 'natural'), $graph);
+		return TRUE;
 	}
-	return TRUE;
 }
 
 function plugin_munin_resetObject ($object_id)
@@ -259,8 +259,11 @@ function renderMuninServersEditor ()
 
 function renderObjectMuninGraphs ($object_id)
 {
-	function printNewItem ($options)
+	function printNewItem ($servers)
 	{
+		$options = array();
+		foreach ($servers as $server)
+			$options[$server['id']] = "${server['id']}: ${server['base_url']}";
 		echo "<table cellspacing=\"0\" align=\"center\" width=\"50%\">";
 		echo "<tr><td>&nbsp;</td><th>Server</th><th>Graph</th><th>Caption</th><td>&nbsp;</td></tr>\n";
 		printOpFormIntro ('add');
@@ -289,12 +292,9 @@ function renderObjectMuninGraphs ($object_id)
 	}
 
 	$servers = getMuninServers ();
-	$options = array ();
-	foreach ($servers as $server)
-		$options[$server['id']] = "${server['id']}: ${server['base_url']}";
 	startPortlet ('Munin Graphs');
 	if (getConfigVar ('ADDNEW_AT_TOP') == 'yes')
-		printNewItem ($options);
+		printNewItem ($servers);
 	echo "<table cellspacing=\"0\" cellpadding=\"10\" align=\"center\" width=\"50%\">\n";
 
 	foreach (getMuninGraphsForObject ($object_id) as $graph_name => $graph)
@@ -311,7 +311,7 @@ function renderObjectMuninGraphs ($object_id)
 	}
 	echo "</table>\n";
 	if (getConfigVar ('ADDNEW_AT_TOP') != 'yes')
-		printNewItem ($options);
+		printNewItem ($servers);
 	finishPortlet ();
 }
 

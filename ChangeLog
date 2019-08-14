@@ -1,3 +1,26 @@
+0.21.3 2019-06-12
+	update: add a log entry limit to the object page (Mantis#769)
+	bugfix: fix an XSS issue in an error message
+0.21.2 2019-03-25
+	update: enable CSS and JavaScript from external URLs (GH#231)
+	update: 802.1Q: do permission check for changing native vlan while keeping the allowed vlans list unchanged
+	update: 802.1Q: foreign VLANs (missing from the vlan domain list) are not propagated to uplinks
+	update: ability to extend supported device breed list via plug-in
+	update: add a server configuration report (same as before install/upgrade)
+	update: new modular port type 'SFP28'
+	update: allow to delete local user accounts (Mantis#1089)
+	update: show names in allocated units when assigning rackspace (Mantis#1711)
+	update: drop support for $localreports
+	update: display file comment in the SELECT (Mantis#1419)
+	update: change command-line arguments in git-commit
+	new feature: "shared router" allocation (GH#210 by Vladimir Ivanov)
+	new feature: optional tag descriptions
+	new feature: support for HP N.11.78 and IOS 15 (GH #225 by Vasilii Shashkov)
+	bugfix: fixup an SQL query in the integrity report
+	bugfix: make the "Uncheck all" button rack-specific
+0.21.1 2017-10-22
+	update: improve Percona server support (Mantis#1793)
+	bugfix: fix an upgrade bug introduced in 0.21.0 (found by Chris James)
 0.21.0 2017-10-01
 	update: better display objects that have no common name
 	update: highlight RackCode syntax in the Permissions viewer too

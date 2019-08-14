@@ -23,7 +23,8 @@ function renderSLBDefConfig()
 
 function renderSLBEntityCell ($cell, $highlighted = FALSE)
 {
-	$class = "slbcell realm-${cell['realm']} id-${cell['id']}";
+	setEntityColors ($cell);
+	$class = "slbcell realm-${cell['realm']} id-${cell['id']} " . getCellClass ($cell, 'list_plain');
 	$a_class = $highlighted ? 'highlight' : '';
 
 	echo "<table class='$class'>";
@@ -478,7 +479,6 @@ function renderRealServerList ()
 	}
 	echo "</table>";
 }
-
 
 function renderNewRSPoolForm ()
 {

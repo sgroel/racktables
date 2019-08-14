@@ -41,9 +41,9 @@ function plugin_cacti_init ()
 		'action' => 'INSERT',
 		'arglist' => array
 		(
-			array ('url_argname' => 'object_id', 'assertion' => 'uint'),
-			array ('url_argname' => 'server_id', 'assertion' => 'uint'),
-			array ('url_argname' => 'graph_id', 'assertion' => 'uint'),
+			array ('url_argname' => 'object_id', 'assertion' => 'natural'),
+			array ('url_argname' => 'server_id', 'assertion' => 'natural'),
+			array ('url_argname' => 'graph_id', 'assertion' => 'natural'),
 			array ('url_argname' => 'caption', 'assertion' => 'string0'),
 		),
 	);
@@ -53,9 +53,9 @@ function plugin_cacti_init ()
 		'action' => 'DELETE',
 		'arglist' => array
 		(
-			array ('url_argname' => 'object_id', 'assertion' => 'uint'),
-			array ('url_argname' => 'server_id', 'assertion' => 'uint'),
-			array ('url_argname' => 'graph_id', 'assertion' => 'uint'),
+			array ('url_argname' => 'object_id', 'assertion' => 'natural'),
+			array ('url_argname' => 'server_id', 'assertion' => 'natural'),
+			array ('url_argname' => 'graph_id', 'assertion' => 'natural'),
 		),
 	);
 	$opspec_list['cacti-servers-add'] = array
@@ -75,7 +75,7 @@ function plugin_cacti_init ()
 		'action' => 'DELETE',
 		'arglist' => array
 		(
-			array ('url_argname' => 'id', 'assertion' => 'uint'),
+			array ('url_argname' => 'id', 'assertion' => 'natural'),
 		),
 	);
 	$opspec_list['cacti-servers-upd'] = array
@@ -90,7 +90,7 @@ function plugin_cacti_init ()
 		),
 		'where_arglist' => array
 		(
-			array ('url_argname' => 'id', 'assertion' => 'uint'),
+			array ('url_argname' => 'id', 'assertion' => 'natural'),
 		),
 	);
 
@@ -163,12 +163,12 @@ function plugin_cacti_dispatchImageRequest ()
 		$tabno = 'cacti';
 		fixContext ();
 		assertPermission ();
-		$graph_id = genericAssertion ('graph_id', 'uint');
+		$graph_id = genericAssertion ('graph_id', 'natural');
 		if (! array_key_exists ($graph_id, getCactiGraphsForObject (getBypassValue())))
 			throw new InvalidRequestArgException ('graph_id', $graph_id);
-		proxyCactiRequest (genericAssertion ('server_id', 'uint'), $graph_id);
+		proxyCactiRequest (genericAssertion ('server_id', 'natural'), $graph_id);
+		return TRUE;
 	}
-	return TRUE;
 }
 
 function plugin_cacti_resetObject ($object_id)
@@ -264,8 +264,11 @@ function renderCactiServersEditor ()
 
 function renderObjectCactiGraphs ($object_id)
 {
-	function printNewItemTR ($options)
+	function printNewItemTR ($servers)
 	{
+		$options = array();
+		foreach ($servers as $server)
+			$options[$server['id']] = "${server['id']}: ${server['base_url']}";
 		echo "<table cellspacing=\"0\" align=\"center\" width=\"50%\">";
 		echo "<tr><td>&nbsp;</td><th>Server</th><th>Graph ID</th><th>Caption</th><td>&nbsp;</td></tr>\n";
 		printOpFormIntro ('add');
@@ -282,12 +285,9 @@ function renderObjectCactiGraphs ($object_id)
 		throw new RackTablesError ('The PHP cURL extension is not loaded.', RackTablesError::MISCONFIGURED);
 
 	$servers = getCactiServers ();
-	$options = array ();
-	foreach ($servers as $server)
-		$options[$server['id']] = "${server['id']}: ${server['base_url']}";
 	startPortlet ('Cacti Graphs');
 	if (getConfigVar ('ADDNEW_AT_TOP') == 'yes' && permitted ('object', 'cacti', 'add'))
-		printNewItemTR ($options);
+		printNewItemTR ($servers);
 	echo "<table cellspacing=\"0\" cellpadding=\"10\" align=\"center\" width=\"50%\">\n";
 	foreach (getCactiGraphsForObject ($object_id) as $graph_id => $graph)
 	{
@@ -303,7 +303,7 @@ function renderObjectCactiGraphs ($object_id)
 	}
 	echo "</table>\n";
 	if (getConfigVar ('ADDNEW_AT_TOP') != 'yes' && permitted ('object', 'cacti', 'add'))
-		printNewItemTR ($options);
+		printNewItemTR ($servers);
 	finishPortlet ();
 }
 

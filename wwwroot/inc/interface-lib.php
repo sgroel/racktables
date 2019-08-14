@@ -403,14 +403,14 @@ function getOptionTree ($tree_name, $tree_options, $tree_config = array())
 		'empty_value' => '',
 		'indexed' => TRUE,
 	);
-	addJS ('js/jquery.optionTree.js');
-	addJS ("
+	addJSInternal ('js/jquery.optionTree.js');
+	addJSText ("
 $(function() {
 	var option_tree = " . json_encode ($tree_options) . ";
 	var options = " . json_encode ($tree_config + $default_config) . ";
 	$('input[name=${tree_name}]').optionTree(option_tree, options);
-});
-", TRUE);
+});"
+	); // addJSText()
 
 	return "<input type=hidden name=${tree_name}>";
 }
@@ -453,6 +453,8 @@ function getImageHREF ($tag, $title = '', $do_input = FALSE)
 	return makeHtmlTag ($element, $attrs);
 }
 
+// This function is DEPRECATED and will be removed in 0.22.0. See the set
+// of stringForXXXXX() functions for a proper replacement.
 function escapeString ($value, $do_db_escape = FALSE)
 {
 	$ret = htmlspecialchars ($value, ENT_QUOTES, 'UTF-8');
@@ -467,12 +469,9 @@ function escapeString ($value, $do_db_escape = FALSE)
 function transformRequestData()
 {
 	global $sic;
-	// Magic quotes feature is deprecated, but just in case the local system
-	// still has it activated, reverse its effect.
-	$do_magic_quotes = function_exists ('get_magic_quotes_gpc') && get_magic_quotes_gpc();
 	$seen_keys = array();
 
-	// Escape any globals before we ever try to use them, but keep a copy of originals.
+	// Escape all globals before using and keep a copy of the original values.
 	$sic = array();
 	// walk through merged GET and POST instead of REQUEST array because it
 	// can contain cookies with data that could not be decoded from UTF-8
@@ -483,9 +482,7 @@ function transformRequestData()
 		else
 		{
 			$value = dos2unix ($value);
-			if ($do_magic_quotes)
-				$value = stripslashes ($value);
-			$_REQUEST[$key] = escapeString ($value);
+			$_REQUEST[$key] = htmlspecialchars ($value, ENT_QUOTES, 'UTF-8');
 		}
 		$sic[$key] = $value;
 		$seen_keys[$key] = 1;
@@ -497,75 +494,132 @@ function transformRequestData()
 			unset ($_REQUEST[$key]);
 
 	if (isset ($_SERVER['PHP_AUTH_USER']))
-		$_SERVER['PHP_AUTH_USER'] = escapeString ($_SERVER['PHP_AUTH_USER']);
+		$_SERVER['PHP_AUTH_USER'] = htmlspecialchars ($_SERVER['PHP_AUTH_USER'], ENT_QUOTES, 'UTF-8');
 	if (isset ($_SERVER['REMOTE_USER']))
-		$_SERVER['REMOTE_USER'] = escapeString ($_SERVER['REMOTE_USER']);
+		$_SERVER['REMOTE_USER'] = htmlspecialchars ($_SERVER['REMOTE_USER'], ENT_QUOTES, 'UTF-8');
 }
 
-// JS scripts should be included through this function.
-// They automatically appear in the <head> of your page.
-// $data is a JS filename, or JS code w/o tags around, if $inline = TRUE
-// Scripts are included in the order of adding within the same group, and groups are sorted alphabetically.
+// Return whether value passed is likely to be a URI.
+function isUri ($uri)
+{
+	return preg_match (RE_STATIC_URI, $uri);
+}
+
+// Return whether value passed is likely to be a URL.
+function isUrl ($url)
+{
+	return preg_match ('~^[\w]+:\/\/[\w \-\.\_\/]+$~', $url);
+}
+
+// JS scripts should be included through the addJS* functions. They will automatically appear in the <head> of your page.
+// the addJS function has been replaced by addJSInternal, addJSExternal and addJSText() functions.  This function will be
+// removed in 2.22.0
 function addJS ($data, $inline = FALSE, $group = 'default')
 {
-	static $javascript = array();
-	static $seen_data = array();
+	if ($inline)
+		addJSText ($data, $group);
+	else if (isURL ($data))
+		addJSExternal ($data, $group);
+	else
+		addJSInternal ($data, $group);
+}
 
-	if (! isset ($data))
-	{
-		ksort ($javascript);
-		return $javascript;
-	}
+// addJSExternal links to external scripts via URL and must be prefixed with
+// either http:// or https://
+function addJSExternal ($url, $group = 'default')
+{
+	if (! isUrl ($url))
+		throw new InvalidArgException ('url', $url, 'Value passed is not a URL');
+
+	addPageHeader ("<script type='text/javascript' src='${url}'></script>\n", $group);
+}
+
+// addJSInternal adds links that go through the Chrome module of index.php
+function addJSInternal ($uri, $group = 'default')
+{
+	global $html_headers;
+
 	// Add jquery.js and racktables.js the first time a Javascript file is added.
-	if (! count ($javascript))
+	// FIXME: Would it be better to do this initialization elsewhere?
+	if (! array_key_exists ('a_core', $html_headers))
 	{
-		$javascript = array
-		(
-			'a_core' => array
-			(
-				array('type' => 'file', 'script' => 'js/jquery-1.4.4.min.js'),
-				array('type' => 'file', 'script' => 'js/racktables.js'),
-			),
-		);
+		// Prevent infinite recursion.
+		$html_headers['a_core'] = array();
 
-		// initialize core js filelist
-		foreach ($javascript as $group_name => $group_array)
-			foreach ($group_array as $item)
-				if ($item['type'] == 'file')
-					$seen_data[$item['script']] = 1;
+		addJSInternal('js/jquery-1.4.4.min.js', 'a_core');
+		addJSInternal('js/racktables.js',       'a_core');
 	}
 
-	if (! isset ($seen_data[$data]))
-	{
-		$javascript[$group][] = array
-		(
-			'type' => $inline ? 'inline' : 'file',
-			'script' => $data,
-		);
-		$seen_data[$data] = 1;
-	}
+	if (! isUri ($uri))
+		throw new InvalidArgException ('uri', $uri, 'Value passed is not a valid URI');
+
+	addPageHeader ("<script type='text/javascript' src='?module=chrome&uri=${uri}'></script>\n", $group);
+}
+
+// This function adds script blocks that automatically appear in the <head> of your page.
+// Scripts are included in the order of adding within the same group, and groups are sorted alphabetically.
+function addJSText ($text, $group = 'default')
+{
+	if (isUrl ($text))
+		throw new InvalidArgException ('text', $text, 'Value passed is most likely a URL and should use addJSExternal()');
+
+	if (isUri ($text))
+		throw new InvalidArgException ('text', $text, 'Value passed is most likely a URI and should use addJSInternal()');
+
+	addPageHeader ('<script type="text/javascript">' . "\n" . trim ($text, "\r\n") . "\n</script>\n", $group);
 }
 
 // CSS styles should be included through this function.
 // They automatically appear in the <head> of your page.
 // $data is a CSS filename, or CSS code w/o tags around, if $inline = TRUE
 // Styles are included in the order of adding.
-function addCSS ($data, $inline = FALSE)
+function addCSS ($data, $inline = FALSE, $group = 'default')
 {
-	static $styles = array();
-	static $seen_data = array();
+	if ($inline)
+		addCSSText ($data, $group);
+	else if (isURL ($data))
+		addCSSExternal ($data, $group);
+	else
+		addCSSInternal ($data, $group);
+}
 
-	if (! isset ($data))
-		return $styles;
-	if (! isset ($seen_data[$data]))
-	{
-		$styles[] = array
-		(
-			'type' => $inline ? 'inline' : 'file',
-			'style' => $data,
-		);
-		$seen_data[$data] = 1;
-	}
+// CSS styles should be included through this function.
+// They automatically appear in the <head> of your page.
+// $data is a CSS filename, or CSS code w/o tags around, if $inline = TRUE
+// Styles are included in the order of adding.
+function addCSSExternal ($url, $group = 'default')
+{
+	if (! isUrl ($url))
+		throw new InvalidArgException ('url', $url, 'Value passed is not a valid URL');
+
+	addPageHeader ("<link rel=stylesheet type='text/css' href='$url' />\n", $group);
+}
+
+// CSS styles should be included through this function.
+// They automatically appear in the <head> of your page.
+// $data is a CSS filename, or CSS code w/o tags around, if $inline = TRUE
+// Styles are included in the order of adding.
+function addCSSInternal ($uri, $group = 'default')
+{
+	if (! isUri ($uri))
+		throw new InvalidArgException ('uri', $uri, 'Value passed is not a valid URI');
+
+	addPageHeader ("<link rel=stylesheet type='text/css' href='?module=chrome&uri=$uri' />\n", $group);
+}
+
+// CSS styles should be included through this function.
+// They automatically appear in the <head> of your page.
+// $data is a CSS filename, or CSS code w/o tags around, if $inline = TRUE
+// Styles are included in the order of adding.
+function addCSSText ($text, $group = 'default')
+{
+	if (isUrl ($text))
+		throw new InvalidArgException ('text', $text, 'Value passed is most likely a URL and should use addCSSExternal()');
+
+	if (isUri ($text))
+		throw new InvalidArgException ('text', $text, 'Value passed is most likely a URI and should use addCSSInternal()');
+
+	addPageHeader ('<style type="text/css">' . "\n" . trim ($text, "\r\n") . "\n</style>\n", $group);
 }
 
 function getRenderedIPNetCapacity ($range)
@@ -635,7 +689,7 @@ function getRenderedIPv4NetCapacity ($range)
 	{
 		// fast mode
 		$class .= ' pending';
-		addJS ('js/net-usage.js');
+		addJSInternal ('js/net-usage.js');
 
 		$free_text = '';
 		if (isset ($range['kidc']) && $range['kidc'] > 0)
@@ -648,7 +702,7 @@ function getRenderedIPv4NetCapacity ($range)
 				$free_text = ', ' . ($cnt > 1 ? "<small>${cnt}&times;</small>" : "") . "/$mask free";
 			}
 		}
-		$text =  ip4_range_size ($range) . $free_text;
+		$text = ip4_range_size ($range) . $free_text;
 	}
 
 	$div_id = $range['ip'] . '/' . $range['mask'];
@@ -666,7 +720,7 @@ function getRenderedIPv6NetCapacity ($range)
 	{
 		$used = NULL;
 		$class .= ' pending';
-		addJS ('js/net-usage.js');
+		addJSInternal ('js/net-usage.js');
 	}
 
 	static $prefixes = array
@@ -706,6 +760,18 @@ function getRenderedIPv6NetCapacity ($range)
 	return "<div class=\"$class\" id=\"$div_id\">" . "{$addrc}${cnt}${mult} ${what}" . "</div>";
 }
 
+// Buffer the header only once. Disregard subsequent calls even if they
+// are made for a different group.
+function addPageHeader ($header, $group)
+{
+	global $html_headers;
+
+	foreach ($html_headers as $group_contents)
+		if (in_array ($header, $group_contents))
+			return;
+	$html_headers[$group][] = $header;
+}
+
 // print part of HTML HEAD block
 function printPageHeaders ()
 {
@@ -714,22 +780,15 @@ function printPageHeaders ()
 	foreach ($pageheaders as $s)
 		echo $s . "\n";
 	// add tabindex to all input forms
-	addJS ('js/tabindex_auto.js', FALSE);
+	addJSInternal ('js/tabindex_auto.js');
 
-	// add CSS styles
-	foreach (addCSS (NULL) as $item)
-		if ($item['type'] == 'inline')
-			echo '<style type="text/css">' . "\n" . trim ($item['style'], "\r\n") . "\n</style>\n";
-		elseif ($item['type'] == 'file')
-			echo "<link rel=stylesheet type='text/css' href='?module=chrome&uri=${item['style']}' />\n";
+	// add JS/CSS headers
+	global $html_headers;
+	ksort($html_headers);
 
-	// add JS scripts
-	foreach (addJS (NULL) as $group_name => $js_list)
-		foreach ($js_list as $item)
-			if ($item['type'] == 'inline')
-				echo '<script type="text/javascript">' . "\n" . trim ($item['script'], "\r\n") . "\n</script>\n";
-			elseif ($item['type'] == 'file')
-				echo "<script type='text/javascript' src='?module=chrome&uri=${item['script']}'></script>\n";
+	foreach ($html_headers as $group_name => $list)
+		foreach ($list as $index => $item)
+			echo "<!-- $group_name:$index -->\n" . $item;
 }
 
 function cmpTags ($a, $b)
@@ -786,12 +845,20 @@ function serializeTags ($chain, $baseurl = '')
 				$title .= "\n";
 			$title .= implode (" &rarr;  ", $parent_info);
 		}
+		$has_descr = array_key_exists ('description', $taginfo) && $taginfo['description'] !== NULL;
+		if ($has_descr)
+			$title .= ($title == '' ? '' : "\n\n") . stringForOption ($taginfo['description'], 0);
 		if ($title != '')
 			$title = "title='$title'";
 
-		$class = '';
-		if (isset ($taginfo['id']))
-			$class = 'class="' . getTagClassName ($taginfo['id']) . '"';
+		if (! array_key_exists ('id', $taginfo))
+			$class = '';
+		else
+		{
+			$class = $has_descr ? 'tag-descr ' : '';
+			$class .= getTagClassName ($taginfo['id']);
+			$class = "class='${class}'";
+		}
 
 		$href = '';
 		if ($baseurl == '')
@@ -890,7 +957,7 @@ function renderEntitySummary ($cell, $title, $values = array())
 		{
 			$baseurl = '';
 			if (isset ($page_by_realm[$cell['realm']]))
-				$baseurl =  makeHref(array('page'=>$page_by_realm[$cell['realm']], 'tab'=>'default'))."&";
+				$baseurl = makeHref(array('page'=>$page_by_realm[$cell['realm']], 'tab'=>'default'))."&";
 			printTagTRs ($cell, $baseurl);
 		}
 		else
@@ -925,7 +992,7 @@ function getOpLink ($params, $title,  $img_name = '', $comment = '', $class = ''
 			$ret .= ' ';
 	}
 	if (FALSE !== strpos ($class, 'need-confirmation'))
-		addJS ('js/racktables.js');
+		addJSInternal ('js/racktables.js');
 	$ret .= $title . '</a>';
 	return $ret;
 }
@@ -994,11 +1061,22 @@ function getRenderedNetVLAN ($cell)
 	return "<div class='vlan'><strong><small>${noun}</small> " . implode (', ', $links) . '</strong></div>';
 }
 
+// DEPRECATED and will be removed in 0.22.0
 function includeJQueryUI ($do_css = TRUE)
 {
-	addJS ('js/jquery-ui-1.8.21.min.js');
+	includeJQueryUIJS();
 	if ($do_css)
-		addCSS ('css/jquery-ui-1.8.22.redmond.css');
+		includeJQueryUICSS();
+}
+
+function includeJQueryUIJS()
+{
+	addJSInternal ('js/jquery-ui-1.8.21.min.js');
+}
+
+function includeJQueryUICSS()
+{
+	addCSSInternal ('css/jquery-ui-1.8.22.redmond.css');
 }
 
 function getRenderedIPPortPair ($ip, $port = NULL)
@@ -1025,7 +1103,6 @@ function printOpFormIntro ($opname, $extra = array(), $upload = FALSE)
 		printf ('<input type=hidden name="%s" value="%s">', htmlspecialchars ($inputname, ENT_QUOTES), htmlspecialchars ($inputvalue, ENT_QUOTES));
 }
 
-
 // Display hrefs for all of a file's parents. If scissors are requested,
 // prepend cutting button to each of them.
 function serializeFileLinks ($links, $scissors = FALSE)
@@ -1051,11 +1128,8 @@ function makeFileDownloadButton ($file_id, $imgname = 'download')
 	return "<a href='${href}'>${img}</a>";
 }
 
-// XXX: in new code please use one of the stringFor... functions below
-//
-// This is a dual-purpose formating function:
-// 1. Replace empty strings with nbsp.
-// 2. Cut strings that are too long: append "cut here" indicator and provide a mouse hint.
+// This function is DEPRECATED and will be removed in version 0.22.0.
+// Instead of it please use one of the stringFor...() functions below.
 function niftyString ($string, $maxlen = 30, $usetags = TRUE)
 {
 	$cutind = '&hellip;'; // length is 1
@@ -1143,12 +1217,14 @@ function printTagsPickerUl ($input_name, $preselect = NULL)
 	if ($preselect === NULL)
 		$preselect = $target_given_tags;
 	foreach (array_keys ($preselect) as $key)
+	{
 		$preselect[$key]['time_parsed'] = formatAge ($preselect[$key]['time']); # readable time format
+		$preselect[$key]['description'] = stringForTextarea ($preselect[$key]['description']);
+	}
 	usort ($preselect, 'cmpTags');
 	$preselect_hidden = "";
-	foreach ($preselect as $value){
+	foreach ($preselect as $value)
 		$preselect_hidden .= "<input type=hidden name=" . $input_name . "[] value=" . $value['id'] . ">";
-	}
 	echo $preselect_hidden; # print preselected tags id that used in case javascript problems
 	echo "<ul data-tagit='yes' data-tagit-valuename='" . $input_name . "' data-tagit-preselect='" . json_encode($preselect) . "' class='tagit-vertical'></ul>";
 }
@@ -1157,10 +1233,11 @@ function enableTagsPicker ()
 {
 	global $taglist;
 	static $taglist_inserted;
-	includeJQueryUI ();
-	addCSS ('css/tagit.css');
-	addJS ('js/tag-it.js');
-	addJS ('js/tag-it-local.js');
+	includeJQueryUIJS();
+	includeJQueryUICSS();
+	addCSSInternal ('css/tagit.css');
+	addJSInternal ('js/tag-it.js');
+	addJSInternal ('js/tag-it-local.js');
 	if (! $taglist_inserted)
 	{
 		$taglist_filtered = array();
@@ -1170,7 +1247,7 @@ function enableTagsPicker ()
 			if ($taginfo['color'] != NULL)
 				$taglist_filtered[$key]['tagclass'] = getTagClass ($taginfo);
 		}
-		addJS ('var taglist = ' . json_encode ($taglist_filtered) . ';', TRUE);
+		addJSText ('var taglist = ' . json_encode ($taglist_filtered) . ';');
 		$taglist_inserted = TRUE;
 	}
 }
@@ -1198,21 +1275,32 @@ function makeHtmlTag ($tagname, $attributes = array())
 	return $ret;
 }
 
-function getObjectClass ($object, $extrastyle = '')
+function getCellClass ($cell, $context)
 {
-	if (! array_key_exists ('colors', $object) || ! count ($object['colors']))
+	$ctxmap = array
+	(
+		'atom_plain' => 'background:white;',
+		'atom_selected' => 'border:3px solid #80ffff !important;background:white;',
+		'list_plain' => '',
+		'list_selected' => 'outline: 3px solid #0aff0a;',
+	);
+	if (! array_key_exists ($context, $ctxmap))
+		throw new InvalidArgException ('context', $context, 'unknown value');
+	if (! array_key_exists ('colors', $cell) || ! count ($cell['colors']))
 		return '';
-	$step = intval (round (100 / count ($object['colors'])));
+	$style = $ctxmap[$context];
+	$step = intval (round (100 / count ($cell['colors'])));
 	$percent = 0;
 	$gradient = '';
-	foreach ($object['colors'] as $color)
+	foreach ($cell['colors'] as $color)
 	{
 		$rgb = colorHex2Rgb ($color);
 		$gradient .= "rgba(${rgb},0.2) ${percent}%, rgba(${rgb},0.3) " . ($percent + $step) . "%,";
 		$percent += $step;
 	}
-	$style = "${extrastyle}background-image:linear-gradient(135deg," . trim ($gradient, ',') . ") !important;";
-	return getCachedCSSClassForStyle ("objectcolor-${object['id']}", $style);
+	$style .= "background-image:linear-gradient(135deg," . trim ($gradient, ',') . ") !important;";
+	$cell_id = $cell[$cell['realm'] == 'user' ? 'user_id' : 'id'];
+	return getCachedCSSClassForStyle ("cellcolor-${cell_id}", $style);
 }
 
 function getTagClass ($taginfo)
@@ -1230,7 +1318,7 @@ function getCachedCSSClassForStyle ($class, $style)
 	$cachedclass = array_search ($style, $cache);
 	if ($cachedclass !== FALSE)
 		return " $cachedclass";
-	addCSS (".{$class} {{$style}}", TRUE);
+	addCSSText (".{$class} {{$style}}");
 	$cache[$class] = $style;
 	return " $class";
 }

@@ -6,11 +6,13 @@
 # licensing information.
 
 $script_mode = TRUE;
-require 'inc/init.php';
+require_once 'inc/init.php';
 
 function usage ($rc)
 {
-	echo "Usage: <this file> <options>\n";
+	$this_file = basename (__FILE__);
+	echo "Usage: {$this_file} <options>\n";
+	echo "Options:\n";
 	echo "\t\t--vdid=<VLAN domain ID>\n";
 	echo "\t\t--mode=pull\n";
 	echo "\t\t--mode=pullall\n";

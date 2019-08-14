@@ -20,7 +20,7 @@ try {
 		// set by local.php get lost
 		require_once 'inc/init.php';
 		prepareNavigation();
-		requireExtraFiles ($interface_requires);
+		requireExtraFiles ($interface_requires, $pageno, $tabno);
 		// Security context is built on the requested page/tab/bypass data,
 		// do not override.
 		fixContext();
@@ -141,7 +141,7 @@ try {
 			// 'progressbar's never change, make browser cache the result
 			if (checkCachedResponse (0, CACHE_DURATION))
 				break;
-			renderProgressBarImage (genericAssertion ('done', 'uint0'));
+			renderProgressBarImage (genericAssertion ('done', 'unsigned'));
 		}
 		catch (Exception $e)
 		{
@@ -159,9 +159,9 @@ try {
 		{
 			renderProgressBar4Image
 			(
-				genericAssertion ('px1', 'uint0'),
-				genericAssertion ('px2', 'uint0'),
-				genericAssertion ('px3', 'uint0')
+				genericAssertion ('px1', 'unsigned'),
+				genericAssertion ('px2', 'unsigned'),
+				genericAssertion ('px3', 'unsigned')
 			);
 		}
 		catch (Exception $e)
@@ -205,6 +205,10 @@ try {
 		// snmp.php is an exception, it is treated by a special hack
 		if (isset ($_REQUEST['op']) && $_REQUEST['op'] == 'querySNMPData')
 			require_once 'inc/snmp.php';
+		// FIXME: One more time doing this and the hack should rather be replaced
+		// with a better structured solution.
+		if (isset ($_REQUEST['op']) && $_REQUEST['op'] == 'resetUIConfig')
+			require_once 'inc/dictionary.php';
 		require_once 'inc/init.php';
 		try
 		{
@@ -215,12 +219,14 @@ try {
 			if ($op == 'addFile' && !isset($_FILES['file']['error']))
 				throw new RackTablesError ('File upload error, check upload_max_filesize in php.ini', RackTablesError::MISCONFIGURED);
 			fixContext();
+			// This could be a malformed request rather than an internal error, but spelling
+			// that in proper detail would require finer checks.
 			if
 			(
 				! isset ($ophandler[$pageno][$tabno][$op]) ||
 				! is_callable ($ophandler[$pageno][$tabno][$op])
 			)
-				throw new RackTablesError ("Invalid navigation data for '${pageno}-${tabno}-${op}'", RackTablesError::INTERNAL);
+				throw new RackTablesError ('This request has no ophandler function.', RackTablesError::INTERNAL);
 			// We have a chance to handle an error before starting HTTP header.
 			if (!isset ($delayauth["${pageno}-${tabno}-${op}"]))
 				assertPermission();

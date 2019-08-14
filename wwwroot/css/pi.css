@@ -50,7 +50,7 @@ table.molecule {
 .portlet {
 	text-align: center;
 	background-color: #ffffff;
-	border: 1px dashed #522D80;
+	border: 1px dashed #3c78b5;
 	padding: 5px;
 	margin: 5px;
 }
@@ -165,6 +165,12 @@ td.tagbox.selected-inverted {
 }
 td.tagbox.inverted {
 	text-decoration: line-through;
+}
+span.tag-descr, a.tag-descr {
+	border-bottom: 1px dashed;
+}
+span.tag-descr {
+	cursor: help;
 }
 
 td.sticker {
@@ -297,7 +303,7 @@ hr {
 
 a {
 	font-family: Verdana, sans-serif;
-	color: #3c78b5;
+	color: #522D800;
 	text-decoration: none;
 }
 
@@ -763,7 +769,7 @@ a.img-link {
 	font-family: "Courier New",Courier,monospace;
 }
 
-/* VLAN lists diff formatting (8021Q Ports and 8021Q Sync pages) */
+/* VLAN lists diff formatting (802.1Q Ports and 802.1Q Sync pages) */
 .vlan-diff {
 	font-weight: bold;
 	float: right;

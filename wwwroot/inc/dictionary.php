@@ -4,32 +4,37 @@
 # framework. See accompanying file "COPYING" for the full copyright and
 # licensing information.
 
-function reloadDictionary ($release = NULL)
+function reloadDictionary ($rows_per_query = 25)
 {
 	global $dictionary;
+
+	function buildInsert ($vlist)
+	{
+		$ret= 'INSERT INTO Dictionary (dict_key, chapter_id, dict_value, dict_sticky) VALUES ';
+		$ret .= implode (', ', $vlist);
+		return $ret;
+	}
+
+	// isNaturalNumber() depends on functions.php, which is not involved in an upgrade (see index.php).
+	$rows_per_query = (int) $rows_per_query;
+	if ($rows_per_query < 1)
+		throw new InvalidArgException ('rows_per_query', $rows_per_query, 'must be a natural number');
 	// Not only update existing stuff, but make sure all obsolete records are gone.
 	$ret = array ("DELETE FROM Dictionary WHERE dict_key BETWEEN 1 AND 49999");
-	$buffered = 0;
+	$vlist = array();
 	# Iterating through 50K possible valid indices is way too slow in PHP and
 	# is likely to hit the default execution time limit of 30 seconds.
 	foreach ($dictionary as $dict_key => $record)
 	{
-		if (! $buffered)
+		$vlist[] = "(${dict_key}, ${record['chapter_id']}, '${record['dict_value']}', 'yes')";
+		if (count ($vlist) == $rows_per_query)
 		{
-			$insert = 'INSERT INTO Dictionary (dict_key, chapter_id, dict_value, dict_sticky) VALUES (' .
-				"${dict_key}, ${record['chapter_id']}, '${record['dict_value']}', 'yes')";
-			$buffered = 1;
-			continue;
-		}
-		$insert .= ", (${dict_key}, ${record['chapter_id']}, '${record['dict_value']}', 'yes')";
-		if (++$buffered == 25)
-		{
-			$ret[] = $insert;
-			$buffered = 0;
+			$ret[] = buildInsert ($vlist);
+			$vlist = array();
 		}
 	}
-	if ($buffered)
-		$ret[] = $insert;
+	if (count ($vlist))
+		$ret[] = buildInsert ($vlist);
 	return $ret;
 }
 
@@ -44,11 +49,6 @@ function isInnoDBSupported ()
 	$trigger_row = $dbxlink->query("SELECT COUNT(*) AS count FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = SCHEMA() AND TRIGGER_NAME = 'trigger_test'")->fetch(PDO::FETCH_ASSOC);
 	$dbxlink->query("DROP TABLE `innodb_test`");
 	return $innodb_row['Engine'] == 'InnoDB' && $trigger_row['count'] == 1;
-}
-
-function platform_function_test ($funcname, $extname, $what_if_not = 'not found', $error_class = 'trerror')
-{
-	return platform_generic_test (function_exists ($funcname), $extname, 'NOT PRESENT', $error_class);
 }
 
 function platform_generic_test ($is_ok, $topic, $what_if_not = 'FAILED', $error_class = 'trerror')
@@ -69,22 +69,104 @@ function pcre8_with_properties()
 }
 
 // Check for PHP extensions.
-function platform_is_ok ()
+function platform_is_ok ($test_innodb = FALSE)
 {
+	$extlist = array
+	(
+		// mandatory
+		array
+		(
+			'name' => 'PDO',
+			'comment' => 'PHP data objects',
+		),
+		array
+		(
+			'name' => 'pdo_mysql',
+			'comment' => 'PDO MySQL driver',
+		),
+		array
+		(
+			'name' => 'pcre',
+			'comment' => 'PCRE',
+		),
+		array
+		(
+			'name' => 'gd',
+			'comment' => 'GD and image',
+		),
+		array
+		(
+			'name' => 'mbstring',
+			'comment' => 'multibyte string',
+		),
+		array
+		(
+			'name' => 'json',
+			'comment' => 'JSON',
+		),
+		array
+		(
+			'name' => 'bcmath',
+			'comment' => 'arbitrary precision mathematics',
+		),
+		// optional
+		array
+		(
+			'name' => 'snmp',
+			'comment' => 'SNMP',
+			'impact' => 'SNMP sync feature will not work',
+		),
+		array
+		(
+			'name' => 'ldap',
+			'comment' => 'LDAP',
+			'impact' => 'LDAP authentication will not work',
+		),
+		array
+		(
+			'name' => 'curl',
+			'comment' => 'client URL library',
+			'impact' => 'some plugins may not work',
+		),
+		array
+		(
+			'name' => 'pcntl',
+			'comment' => 'process control',
+			'impact' => '802.1Q parallel sync will not work',
+		),
+	);
 	$nerrs = 0;
 	echo "<table border=1 cellpadding=5>\n";
 	$nerrs += platform_generic_test (version_compare (PHP_VERSION, '5.5.0', '>='), 'PHP version >= 5.5.0');
-	$nerrs += platform_generic_test (class_exists ('PDO'), 'PDO extension');
-	$nerrs += platform_generic_test (in_array  ('pdo_mysql', get_loaded_extensions()), 'PDO-MySQL extension');
-	$nerrs += platform_function_test ('preg_match', 'PCRE extension');
+	foreach ($extlist as $e)
+	{
+		if (array_key_exists ('impact', $e))
+		{
+			// When an optional PHP extension is not available, display a warning and a message
+			// with some additional information so that the user can decide if it is OK to proceed
+			// without the feature(s) that depend on the extension.
+			$what_if_not = "Not found ({$e['impact']}).";
+			$error_class = 'trwarning';
+			$c = 0;
+		}
+		else
+		{
+			// If a mandatory PHP extension is not available, just report the failure.
+			$what_if_not = 'Not found.';
+			$error_class = 'trerror';
+			$c = 1;
+		}
+		$nerrs += $c * platform_generic_test
+		(
+			extension_loaded ($e['name']),
+			"{$e['comment']} extension ({$e['name']})",
+			$what_if_not,
+			$error_class
+		);
+	}
+	if ($test_innodb)
+		$nerrs += platform_generic_test (isInnoDBSupported(), 'InnoDB support');
 	$nerrs += platform_generic_test (pcre8_with_properties(), 'PCRE compiled with<br>--enable-unicode-properties');
-	platform_function_test ('snmpwalk', 'SNMP extension', 'Not found, Live SNMP feature will not work.', 'trwarning');
-	$nerrs += platform_function_test ('gd_info', 'GD extension');
-	$nerrs += platform_function_test ('mb_strlen', 'Multibyte string extension');
-	platform_function_test ('ldap_connect', 'LDAP extension', 'Not found, LDAP authentication will not work.', 'trwarning');
-	platform_function_test ('pcntl_waitpid', 'PCNTL extension', '802.1Q parallel sync is unavailable.', 'trwarning');
-	$nerrs += platform_function_test ('json_encode', 'JSON extension', 'JavaScript interface bits may fail.');
-	$nerrs += platform_function_test ('bcmul', 'BC Math extension');
 	platform_generic_test
 	(
 		(! empty ($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off'),
@@ -94,6 +176,97 @@ function platform_is_ok ()
 	);
 	echo "</table>\n";
 	return !$nerrs;
+}
+
+// FIXME: Use this in the installer instead of the hardcoded SQL.
+function getConfigDefaults()
+{
+	return array
+	(
+		'MASSCOUNT' => '8',
+		'MAXSELSIZE' => '30',
+		'ROW_SCALE' => '2',
+		'IPV4_ADDRS_PER_PAGE' => '256',
+		'DEFAULT_RACK_HEIGHT' => '42',
+		'DEFAULT_SLB_VS_PORT' => '',
+		'DEFAULT_SLB_RS_PORT' => '',
+		'DETECT_URLS' => 'no',
+		'RACK_PRESELECT_THRESHOLD' => '1',
+		'DEFAULT_IPV4_RS_INSERVICE' => 'no',
+		'AUTOPORTS_CONFIG' => '4 = 1*33*kvm + 2*24*eth%u;15 = 1*446*kvm',
+		'SHOW_EXPLICIT_TAGS' => 'yes',
+		'SHOW_IMPLICIT_TAGS' => 'yes',
+		'SHOW_AUTOMATIC_TAGS' => 'no',
+		'DEFAULT_OBJECT_TYPE' => '4',
+		'IPV4_AUTO_RELEASE' => '1',
+		'SHOW_LAST_TAB' => 'yes',
+		'EXT_IPV4_VIEW' => 'yes',
+		'TREE_THRESHOLD' => '25',
+		'IPV4_JAYWALK' => 'no',
+		'ADDNEW_AT_TOP' => 'yes',
+		'IPV4_TREE_SHOW_USAGE' => 'no',
+		'PREVIEW_TEXT_MAXCHARS' => '10240',
+		'PREVIEW_TEXT_ROWS' => '25',
+		'PREVIEW_TEXT_COLS' => '80',
+		'PREVIEW_IMAGE_MAXPXS' => '320',
+		'VENDOR_SIEVE' => '',
+		'IPV4LB_LISTSRC' => 'false',
+		'IPV4OBJ_LISTSRC' => 'not ({$typeid_3} or {$typeid_9} or {$typeid_10} or {$typeid_11})',
+		'IPV4NAT_LISTSRC' => '{$typeid_4} or {$typeid_7} or {$typeid_8} or {$typeid_798}',
+		'ASSETWARN_LISTSRC' => '{$typeid_4} or {$typeid_7} or {$typeid_8}',
+		'NAMEWARN_LISTSRC' => '{$typeid_4} or {$typeid_7} or {$typeid_8}',
+		'RACKS_PER_ROW' => '12',
+		'FILTER_PREDICATE_SIEVE' => '',
+		'FILTER_DEFAULT_ANDOR' => 'and',
+		'FILTER_SUGGEST_ANDOR' => 'yes',
+		'FILTER_SUGGEST_TAGS' => 'yes',
+		'FILTER_SUGGEST_PREDICATES' => 'yes',
+		'FILTER_SUGGEST_EXTRA' => 'no',
+		'DEFAULT_SNMP_COMMUNITY' => 'public',
+		'IPV4_ENABLE_KNIGHT' => 'yes',
+		'TAGS_TOPLIST_SIZE' => '50',
+		'TAGS_QUICKLIST_SIZE' => '20',
+		'TAGS_QUICKLIST_THRESHOLD' => '50',
+		'ENABLE_MULTIPORT_FORM' => 'no',
+		'DEFAULT_PORT_IIF_ID' => '1',
+		'DEFAULT_PORT_OIF_IDS' => '1=24; 3=1078; 4=1077; 5=1079; 6=1080; 8=1082; 9=1084; 10=1588; 11=1668; 12=1589; 13=1590; 14=1591',
+		'IPV4_TREE_RTR_AS_CELL' => 'no',
+		'PROXIMITY_RANGE' => '0',
+		'IPV4_TREE_SHOW_VLAN' => 'yes',
+		'VLANSWITCH_LISTSRC' => '',
+		'VLANNET_LISTSRC' => '',
+		'DEFAULT_VDOM_ID' => '',
+		'DEFAULT_VST_ID' => '',
+		'STATIC_FILTER' => 'yes',
+		'8021Q_DEPLOY_MINAGE' => '300',
+		'8021Q_DEPLOY_MAXAGE' => '3600',
+		'8021Q_DEPLOY_RETRY' => '10800',
+		'8021Q_WRI_AFTER_CONFT_LISTSRC' => 'false',
+		'8021Q_INSTANT_DEPLOY' => 'no',
+		'ENABLE_BULKPORT_FORM' => 'yes',
+		'CDP_RUNNERS_LISTSRC' => '',
+		'LLDP_RUNNERS_LISTSRC' => '',
+		'SHRINK_TAG_TREE_ON_CLICK' => 'yes',
+		'MAX_UNFILTERED_ENTITIES' => '0',
+		'SYNCDOMAIN_MAX_PROCESSES' => '0',
+		'PORT_EXCLUSION_LISTSRC' => '{$typeid_3} or {$typeid_10} or {$typeid_11} or {$typeid_1505} or {$typeid_1506}',
+		'FILTER_RACKLIST_BY_TAGS' => 'yes',
+		'MGMT_PROTOS' => 'ssh: {$typeid_4}; telnet: {$typeid_8}',
+		'SYNC_8021Q_LISTSRC' => '',
+		'QUICK_LINK_PAGES' => 'depot,ipv4space,rackspace',
+		'VIRTUAL_OBJ_CSV' => '1504,1505,1506,1507',
+		'DATETIME_ZONE' => 'UTC',
+		'DATETIME_FORMAT' => '%Y-%m-%d',
+		'DATEONLY_FORMAT' => '%Y-%m-%d',
+		'SEARCH_DOMAINS' => '',
+		'8021Q_EXTSYNC_LISTSRC' => 'false',
+		'8021Q_MULTILINK_LISTSRC' => 'false',
+		'REVERSED_RACKS_LISTSRC' => 'false',
+		'NEAREST_RACKS_CHECKBOX' => 'yes',
+		'SHOW_OBJECTTYPE' => 'yes',
+		'IPV4_TREE_SHOW_UNALLOCATED' => 'yes',
+		'OBJECTLOG_PREVIEW_ENTRIES' => '5',
+	);
 }
 
 $dictionary = array
@@ -936,7 +1109,7 @@ $dictionary = array
 	869 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%2810-48G J9022A'),
 	870 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%2824'),
 	871 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%2848'),
-	872 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%2900-24G'),
+	872 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%2900-24G (J9049A)'),
 	873 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%2900-48G'),
 	874 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%3400cl-24G'),
 	875 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%3400cl-48G'),
@@ -2064,7 +2237,7 @@ $dictionary = array
 	2173 => array ('chapter_id' => 17, 'dict_value' => 'MikroTik%GPASS%CCR1009-8G-1S'),
 	2174 => array ('chapter_id' => 17, 'dict_value' => 'MikroTik%GPASS%CCR1009-8G-1S-1S+'),
 	2175 => array ('chapter_id' => 17, 'dict_value' => 'MikroTik%GPASS%CCR1016-12S-1S+'),
-	2176 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%1910-24G'),
+	2176 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%1910-24G (JE006A)'),
 	2177 => array ('chapter_id' => 13, 'dict_value' => '[[Univention%GSKIP%Univention Corporate Server 3.2 (borgfeld) | http://docs.univention.de/release-notes-3.2-2-de.html]]'),
 	2178 => array ('chapter_id' => 27, 'dict_value' => '[[APC%GPASS%AP8941 | http://www.apc.com/products/resource/include/techspec_index.cfm?base_sku=AP8941]]'),
 	2179 => array ('chapter_id' => 27, 'dict_value' => '[[APC%GPASS%AP8959EU3 | http://www.apc.com/products/resource/include/techspec_index.cfm?base_sku=AP8959EU3]]'),
@@ -2126,11 +2299,11 @@ $dictionary = array
 	2235 => array ('chapter_id' => 12, 'dict_value' => '[[Cisco%GPASS%Nexus 9504 | http://www.cisco.com/c/en/us/products/switches/nexus-9504-switch/index.html]]'),
 	2236 => array ('chapter_id' => 12, 'dict_value' => '[[Cisco%GPASS%Nexus 9508 | http://www.cisco.com/c/en/us/products/switches/nexus-9508-switch/index.html]]'),
 	2237 => array ('chapter_id' => 12, 'dict_value' => '[[Cisco%GPASS%Nexus 9516 | http://www.cisco.com/c/en/us/products/switches/nexus-9516-switch/index.html]]'),
-	2238 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%1910-48G'),
+	2238 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%1910-48G (JE009A)'),
 	2239 => array ('chapter_id' => 12, 'dict_value' => '[[Brocade%GPASS%ICX-6430-48 | http://www.brocade.com/products/all/switches/product-details/icx-6430-and-6450-switches/index.page]]'),
 	2240 => array ('chapter_id' => 12, 'dict_value' => '[[Brocade%GPASS%ICX-6450-48 | http://www.brocade.com/products/all/switches/product-details/icx-6430-and-6450-switches/index.page]]'),
 	2241 => array ('chapter_id' => 12, 'dict_value' => '[[IBM%GPASS%RackSwitch G8000 | http://www-03.ibm.com/systems/networking/switches/rack/g8000/]]'),
-	2242 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%1810G-24'),
+	2242 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%1810G-24 (J9450A)'),
 	2243 => array ('chapter_id' => 17, 'dict_value' => 'Huawei%GPASS%NE20E-S4'),
 	2244 => array ('chapter_id' => 17, 'dict_value' => 'Huawei%GPASS%NE20E-S8'),
 	2245 => array ('chapter_id' => 17, 'dict_value' => 'Huawei%GPASS%NE20E-S16'),
@@ -2347,7 +2520,7 @@ $dictionary = array
 	2457 => array ('chapter_id' => 18, 'dict_value' => 'NetApp%GPASS%FAS2240-2'),
 	2458 => array ('chapter_id' => 18, 'dict_value' => 'NetApp%GPASS%FAS2240-4'),
 	2459 => array ('chapter_id' => 18, 'dict_value' => 'NetApp%GPASS%FAS2520'),
-	2460 => array ('chapter_id' => 18, 'dict_value' => 'NetApp%GPASS%FAS2552'),
+	2460 => array ('chapter_id' => 18, 'dict_value' => '[[ NetApp%GPASS%FAS2552 | http://mysupport.netapp.com/documentation/docweb/index.html?productID=61619 ]]'),
 	2461 => array ('chapter_id' => 18, 'dict_value' => 'NetApp%GPASS%FAS2554'),
 	2462 => array ('chapter_id' => 12, 'dict_value' => 'HP EI%GPASS%5130-24G-4SFP+ (JG932A)'),
 	2463 => array ('chapter_id' => 12, 'dict_value' => 'HP EI%GPASS%5130-24G-SFP-4SFP+ (JG933A)'),
@@ -2360,11 +2533,11 @@ $dictionary = array
 	2470 => array ('chapter_id' => 12, 'dict_value' => 'HP EI%GPASS%5130-48G-PoE+-2SFP+-2XGT (JG941A)'),
 	2471 => array ('chapter_id' => 17, 'dict_value' => 'MikroTik%GPASS%CCR1072-1G-8S+'),
 	2472 => array ('chapter_id' => 17, 'dict_value' => 'MikroTik%GPASS%3011UiAS-RM'),
-	2473 => array ('chapter_id' => 16, 'dict_value' => 'OpenWrt 14'),
-	2474 => array ('chapter_id' => 16, 'dict_value' => 'OpenWrt 15'),
+	2473 => array ('chapter_id' => 16, 'dict_value' => 'OpenWrt 14.07'),
+	2474 => array ('chapter_id' => 16, 'dict_value' => 'OpenWrt 15.05'),
 	2475 => array ('chapter_id' => 16, 'dict_value' => 'RouterOS 6'),
-	2476 => array ('chapter_id' => 37, 'dict_value' => 'OpenWrt 14'),
-	2477 => array ('chapter_id' => 37, 'dict_value' => 'OpenWrt 15'),
+	2476 => array ('chapter_id' => 37, 'dict_value' => 'OpenWrt 14.07'),
+	2477 => array ('chapter_id' => 37, 'dict_value' => 'OpenWrt 15.05'),
 	2478 => array ('chapter_id' => 37, 'dict_value' => 'RouterOS 6'),
 	2479 => array ('chapter_id' => 12, 'dict_value' => '[[Cisco%GPASS%Nexus 7702 | http://www.cisco.com/c/en/us/products/switches/nexus-7700-2-slot-switch/index.html]]'),
 	2480 => array ('chapter_id' => 12, 'dict_value' => '[[Cisco%GPASS%Nexus 7706 | http://www.cisco.com/c/en/us/products/switches/nexus-7700-6-slot-switch/index.html]]'),
@@ -3550,10 +3723,87 @@ $dictionary = array
 	3660 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7160-48YC6'),
 	3661 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7160-48TC6'),
 	3662 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7516R'),
-
+	3663 => array ('chapter_id' => 31, 'dict_value' => 'HPE%GPASS%BladeSystem c3000%L4,2H%'),
+	3664 => array ('chapter_id' => 31, 'dict_value' => 'HPE%GPASS%BladeSystem c7000%L2,8V%'),
+	3665 => array ('chapter_id' => 17, 'dict_value' => 'MikroTik%GPASS%RB1100AHx4'),
+	3666 => array ('chapter_id' => 12, 'dict_value' => 'NEC%GPASS%PF5459-48XT-4Q'),
+	3667 => array ('chapter_id' => 12, 'dict_value' => 'NEC%GPASS%PF5468-32QP'),
+	3668 => array ('chapter_id' => 12, 'dict_value' => 'NEC%GPASS%PF5340-48XP-6Q'),
+	3669 => array ('chapter_id' => 12, 'dict_value' => 'NEC%GPASS%PF5340-32QP'),
+	3670 => array ('chapter_id' => 12, 'dict_value' => '[[TP-Link%GPASS%T1700G-28TQ | http://www.tp-link.com/en/products/details/cat-40_T1700G-28TQ.html]]'),
+	3671 => array ('chapter_id' => 12, 'dict_value' => '[[TP-Link%GPASS%TL-SG2216 | http://www.tp-link.com/en/products/details/cat-5070_TL-SG2216.html]]'),
+	3672 => array ('chapter_id' => 12, 'dict_value' => '[[TP-Link%GPASS%TL-SG3424 | http://www.tp-link.com/en/products/details/cat-39_TL-SG3424.html]]'),
+	3673 => array ('chapter_id' => 17, 'dict_value' => 'MikroTik%GPASS%CCR1009-7G-1C-PC'),
+	3674 => array ('chapter_id' => 17, 'dict_value' => 'MikroTik%GPASS%CCR1009-7G-1C-1S+PC'),
+	3675 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7280QRA-C36S'),
+	3676 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7280SRA-48C6'),
+	3677 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7280TRA-48C6'),
+	3678 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7280SRAM-48C6'),
+	3679 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7280CR2-60'),
+	3680 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7280CR2A-60'),
+	3681 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7280CR2K-60'),
+	3682 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7280CR2K-30'),
+	3683 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7280SR2-48YC6'),
+	3684 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7280SR2A-48YC6'),
+	3685 => array ('chapter_id' => 12, 'dict_value' => 'MikroTik%GPASS%CRS112-8P-4S-IN'),
+	3686 => array ('chapter_id' => 13, 'dict_value' => 'Ubuntu%GSKIP%Ubuntu 17.10'),
+	3687 => array ('chapter_id' => 13, 'dict_value' => 'SUSE Enterprise%GSKIP%SLES15'),
+	3688 => array ('chapter_id' => 13, 'dict_value' => 'OpenSUSE%GSKIP%openSUSE Leap 15.x'),
+	3689 => array ('chapter_id' => 39, 'dict_value' => '[[APC%GPASS%SMT1500RMI2U | http://www.apc.com/products/resource/include/techspec_index.cfm?base_sku=SMT1500RMI2U]]'),
+	3690 => array ('chapter_id' => 39, 'dict_value' => '[[APC%GPASS%SMT1500RMI2UNC | http://www.apc.com/products/resource/include/techspec_index.cfm?base_sku=SMT1500RMI2UNC]]'),
+	3691 => array ('chapter_id' => 12, 'dict_value' => '[[NETGEAR%GPASS%GS108 | https://www.netgear.com/business/products/switches/unmanaged/GS108.aspx]]'),
+	3692 => array ('chapter_id' => 12, 'dict_value' => '[[NETGEAR%GPASS%GS105 | https://www.netgear.com/business/products/switches/unmanaged/GS105.aspx]]'),
+	3693 => array ('chapter_id' => 13, 'dict_value' => '[[PROXMOX%GSKIP%Proxmox VE 3.4 | http://pve.proxmox.com/wiki/Roadmap#Proxmox_VE_3.4]]'),
+	3694 => array ('chapter_id' => 13, 'dict_value' => '[[PROXMOX%GSKIP%Proxmox VE 4.0 | http://pve.proxmox.com/wiki/Roadmap#Proxmox_VE_4.0]]'),
+	3695 => array ('chapter_id' => 13, 'dict_value' => '[[PROXMOX%GSKIP%Proxmox VE 4.1 | http://pve.proxmox.com/wiki/Roadmap#Proxmox_VE_4.1]]'),
+	3696 => array ('chapter_id' => 13, 'dict_value' => '[[PROXMOX%GSKIP%Proxmox VE 4.2 | http://pve.proxmox.com/wiki/Roadmap#Proxmox_VE_4.2]]'),
+	3697 => array ('chapter_id' => 13, 'dict_value' => '[[PROXMOX%GSKIP%Proxmox VE 4.3 | http://pve.proxmox.com/wiki/Roadmap#Proxmox_VE_4.3]]'),
+	3698 => array ('chapter_id' => 13, 'dict_value' => '[[PROXMOX%GSKIP%Proxmox VE 4.4 | http://pve.proxmox.com/wiki/Roadmap#Proxmox_VE_4.4]]'),
+	3699 => array ('chapter_id' => 13, 'dict_value' => '[[PROXMOX%GSKIP%Proxmox VE 5.0 | http://pve.proxmox.com/wiki/Roadmap#Proxmox_VE_5.0]]'),
+	3700 => array ('chapter_id' => 13, 'dict_value' => '[[PROXMOX%GSKIP%Proxmox VE 5.1 | http://pve.proxmox.com/wiki/Roadmap#Proxmox_VE_5.1]]'),
+	3701 => array ('chapter_id' => 12, 'dict_value' => '[[TP-Link%GPASS%T1600G-18TS | https://www.tp-link.com/en/products/details/cat-40_T1600G-18TS.html]]'),
+	3702 => array ('chapter_id' => 27, 'dict_value' => '[[Raritan%GPASS%PX3-5514U | http://cdn.raritan.com/product-selector/pdus/PX3-5514U/MPX3-5514U.pdf]]'),
+	3703 => array ('chapter_id' => 12, 'dict_value' => '[[HP Aruba%GPASS%3810M 16SFP+ 2-slot (JL075A) | http://duckduckgo.com/?q=JL075A+manual ]]'),
+	3704 => array ('chapter_id' => 13, 'dict_value' => 'VMWare Hypervisor%GSKIP%VMware ESXi 6.5'),
+	3705 => array ('chapter_id' => 17, 'dict_value' => '[[ Fortinet%GPASS%Fortigate 600D | http://www.fortinet.com/content/dam/fortinet/assets/data-sheets/FortiGate_600D.pdf ]]'),
+	3706 => array ('chapter_id' => 13, 'dict_value' => 'Ubuntu%GSKIP%Ubuntu 18.04 LTS'),
+	3707 => array ('chapter_id' => 12, 'dict_value' => 'MikroTik%GPASS%CRS328-4C-20S-4S+RM'),
+	3708 => array ('chapter_id' => 12, 'dict_value' => 'MikroTik%GPASS%CRS328-24P-4S+RM'),
+	3709 => array ('chapter_id' => 13, 'dict_value' => '[[Debian%GSKIP%Debian 9 (Stretch) | http://debian.org/releases/stretch/]]'),
+	3710 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7170-32C'),
+	3711 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7170-64C'),
+	3712 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7060SX2-48YC6'),
+	3713 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7260CX3-64'),
+	3714 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7050CX3-32S'),
+	3715 => array ('chapter_id' => 12, 'dict_value' => 'Arista%GPASS%7050SX3-48YC12'),
+	3716 => array ('chapter_id' => 12, 'dict_value' => 'Huawei%GPASS%CE6865-48S8CQ-EI'),
+	3717 => array ('chapter_id' => 11, 'dict_value' => 'Dell PowerEdge%GPASS%R320'),
+	3718 => array ('chapter_id' => 11, 'dict_value' => 'Dell PowerEdge%GPASS%R330'),
+	3719 => array ('chapter_id' => 11, 'dict_value' => 'Dell PowerEdge%GPASS%R740xd'),
+	3720 => array ('chapter_id' => 14, 'dict_value' => 'HP Procurve OS N.11.78'),
+	3721 => array ('chapter_id' => 12, 'dict_value' => '[[HP%GPASS%HP Aruba 2530 48 PoE+ Switch | https://www.hpe.com/us/en/product-catalog/networking/networking-switches/pip.specifications.aruba-2530-48-poeplus-switch.5384996.html]]'),
+	3722 => array ('chapter_id' => 12, 'dict_value' => '[[HP%GPASS%HP Aruba 2530 24 PoE+ Switch | https://www.hpe.com/uk/en/product-catalog/networking/networking-switches/pip.specifications.aruba-2530-24-poeplus-switch.5384999.html]]'),
+	3723 => array ('chapter_id' => 12, 'dict_value' => '[[HP%GPASS%HP 1950 48G 2SFP+ 2XGT Switch | https://www.hpe.com/us/en/product-catalog/networking/networking-switches/pip.specifications.hpe-officeconnect-1950-48g-2sfpplus-2xgt-poeplus-switch.6887601.html]]'),
+	3724 => array ('chapter_id' => 12, 'dict_value' => '[[HP%GPASS%HP FlexFabric 5900AF 48XG 4QSFP+ Switch | https://www.hpe.com/us/en/product-catalog/networking/networking-switches/pip.specifications.hpe-flexfabric-5900af-48xg-4qsfpplus-switch.5223200.html]]'),
+	3725 => array ('chapter_id' => 12, 'dict_value' => '[[HP%GPASS%HPE 5500-24G-4SFP | https://h20195.www2.hpe.com/v2/default.aspx?cc=az&lc=az&oid=5195377]]'),
+	3726 => array ('chapter_id' => 12, 'dict_value' => '[[HP%GPASS%HP A5800AF-48G Switch with 2 Processors (JG225A) | https://www.hpe.com/us/en/product-catalog/networking/networking-switches/pip.specifications.hpe-flexfabric-5800af-48g-switch.7482188.html]]'),
+	3727 => array ('chapter_id' => 12, 'dict_value' => '[[HP%GPASS%HP 1810-8G v2 (J9802A)]]'),
+	3728 => array ('chapter_id' => 12, 'dict_value' => '[[HP%GPASS%HP ProCurve 5406zl (J8697A) | http://www.hp.com/hpinfo/newsroom/press_kits/2010/HPOptimizesAppDelivery/E5400zl_Switch_Series_Data_Sheet.pdf]]'),
+	3729 => array ('chapter_id' => 12, 'dict_value' => '[[HP%GPASS%HP 1810-8G v2 (J9449A) | https://h10057.www1.hp.com/ecomcat/hpcatalog/specs/provisioner/99/J9449A.htm]]'),
+	3730 => array ('chapter_id' => 12, 'dict_value' => 'HP ProCurve%GPASS%1810G-24 (J9803A)'),
+	3731 => array ('chapter_id' => 12, 'dict_value' => 'Cisco%GPASS%Cisco 871'),
+	3732 => array ('chapter_id' => 12, 'dict_value' => '[[HP%GPASS%HP A5120-24G EI (JE068A) | [[https://h20195.www2.hpe.com/v2/GetDocument.aspx?docname=c04111657&doctype=quickspecs&doclang=EN_US&searchquery=&cc=za&lc=en]]'),
+	3733 => array ('chapter_id' => 16, 'dict_value' => 'OpenWrt 17.01'),
+	3734 => array ('chapter_id' => 16, 'dict_value' => 'OpenWrt 18.06'),
+	3735 => array ('chapter_id' => 37, 'dict_value' => 'OpenWrt 17.01'),
+	3736 => array ('chapter_id' => 37, 'dict_value' => 'OpenWrt 18.06'),
+	3737 => array ('chapter_id' => 13, 'dict_value' => 'RH Fedora%GSKIP%Fedora 27'),
+	3738 => array ('chapter_id' => 13, 'dict_value' => 'RH Fedora%GSKIP%Fedora 28'),
+	3739 => array ('chapter_id' => 13, 'dict_value' => 'RH Fedora%GSKIP%Fedora 29'),
+	3740 => array ('chapter_id' => 13, 'dict_value' => 'RH Fedora%GSKIP%Fedora 30'),
 
 # Any new "default" dictionary records must go above this line (i.e., with
-# dict_key code less, than 50000). This is necessary to keep AUTO_INCREMENT
+# dict_key code less than 50000). This is necessary to keep AUTO_INCREMENT
 # and dictionary updates working properly.
 	49999 => array ('chapter_id' => 13, 'dict_value' => '[[RH Fedora%GSKIP%Fedora 15 | http://docs.fedoraproject.org/release-notes/f15/en-US/html/]]'),
 );

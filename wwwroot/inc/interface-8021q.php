@@ -13,15 +13,12 @@ function render8021QOrderForm ($some_id)
 		$hintcodes = array ('prev_vdid' => 'DEFAULT_VDOM_ID', 'prev_vstid' => 'DEFAULT_VST_ID', 'prev_objid' => NULL);
 		$focus = array();
 		foreach ($hintcodes as $hint_code => $option_name)
-		if (array_key_exists ($hint_code, $_REQUEST))
-		{
-			assertUIntArg ($hint_code);
-			$focus[$hint_code] = $_REQUEST[$hint_code];
-		}
-		elseif ($option_name != NULL)
-			$focus[$hint_code] = getConfigVar ($option_name);
-		else
-			$focus[$hint_code] = NULL;
+			if (array_key_exists ($hint_code, $_REQUEST))
+				$focus[$hint_code] = genericAssertion ($hint_code, 'natural');
+			elseif ($option_name != NULL)
+				$focus[$hint_code] = getConfigVar ($option_name);
+			else
+				$focus[$hint_code] = NULL;
 		printOpFormIntro ('add');
 		echo '<tr>';
 		if ($pageno != 'object')
@@ -440,7 +437,7 @@ function renderObject8021QPorts ($object_id)
 	$sockets = array();
 	if (isset ($_REQUEST['hl_port_id']))
 	{
-		assertUIntArg ('hl_port_id');
+		genericAssertion ('hl_port_id', 'natural');
 		$hl_port_id = intval ($_REQUEST['hl_port_id']);
 		$hl_port_name = NULL;
 		addAutoScrollScript ("port-$hl_port_id");
@@ -616,7 +613,7 @@ function getAccessPortControlCode ($req_port_name, $vdom, $port_name, $port, &$n
 			if (nativeVlanChangePermitted ($port_name, $from, $to, 'save8021QConfig'))
 				$vlanpermissions[$from][] = $to;
 	}
-	$ret = "<input type=hidden name=pn_${nports} value=${port_name}>";
+	$ret = "<input type=hidden name=pn_${nports} value='${port_name}'>";
 	$ret .= "<input type=hidden name=pm_${nports} value=access>";
 	$options = array();
 	// Offer only options that are listed in domain and fit into VST.
@@ -885,7 +882,7 @@ function renderVLANInfo ($vlan_ck)
 		$confports += getVLANConfiguredPorts ($grouped_ck);
 	if ($vlan['domain_group_id'])
 	{
-		// we should find configured port on master's members
+		// Find configured port on master's members
 		// even if master domain itself does not have such VLAN
 		$master_ck = $vlan['domain_group_id'] . '-' . $vlan['vlan_id'];
 		if (! isset ($group_ck_list[$master_ck]))
@@ -996,7 +993,7 @@ function renderVLANIPLinks ($some_id)
 			);
 		// Any VLAN can link to any network that isn't yet linked to current domain.
 		// get free IP nets
-		$netlist_func  = $ip_ver == 'ipv6' ? 'getVLANIPv6Options' : 'getVLANIPv4Options';
+		$netlist_func = $ip_ver == 'ipv6' ? 'getVLANIPv6Options' : 'getVLANIPv4Options';
 		foreach ($netlist_func ($vlan['domain_id']) as $net_id)
 		{
 			$netinfo = spotEntity ($ip_ver . 'net', $net_id);
@@ -1166,7 +1163,7 @@ function renderObject8021QSyncPreview ($object, $vswitch, $plan, $C, $R, $maxdec
 {
 	if (isset ($_REQUEST['hl_port_id']))
 	{
-		assertUIntArg ('hl_port_id');
+		genericAssertion ('hl_port_id', 'natural');
 		$hl_port_id = intval ($_REQUEST['hl_port_id']);
 		$hl_port_name = NULL;
 		addAutoScrollScript ("port-$hl_port_id");
@@ -1181,9 +1178,9 @@ function renderObject8021QSyncPreview ($object, $vswitch, $plan, $C, $R, $maxdec
 	}
 
 	switchportInfoJS ($vswitch['object_id']); // load JS code to make portnames interactive
-	// initialize one of three popups: we've got data already
+	// Initialize one of the three popups: the data is ready.
 	$port_config = addslashes (json_encode (formatPortConfigHints ($vswitch['object_id'], $R)));
-	addJS (<<<'END'
+	addJSText (<<<'END'
 $(document).ready(function(){
 	var confData = $.parseJSON('$port_config');
 	applyConfData(confData);
@@ -1201,9 +1198,9 @@ function checkColumnOfRadios8021Q (prefix, numRows, suffix)
 		if (document.getElementById(elemId) == null) // no radios on this row
 			continue;
 		// Not all radios are present on each form. Hence each time
-		// we are requested to switch from left to right (or vice versa)
+		// the user wants to flip all rows from left to right (or vice versa)
 		// it is better to half-complete the request by setting to the
-		// middle position, than to fail completely due to missing
+		// middle position rather than to fail completely due to missing
 		// target input.
 		if (document.getElementById(elemId).disabled == true)
 			switch (suffix)
@@ -1218,14 +1215,14 @@ function checkColumnOfRadios8021Q (prefix, numRows, suffix)
 	}
 }
 END
-	, TRUE);
+	); // addJSText()
 	echo '<table cellspacing=0 cellpadding=5 align=center class=widetable width="100%">';
 	if ($maxdecisions)
 		echo '<tr><th colspan=2>&nbsp;</th><th colspan=3>discard</th><th>&nbsp;</th></tr>';
 	echo '<tr valign=top><th>port</th><th width="40%">last&nbsp;saved&nbsp;version</th>';
 	if ($maxdecisions)
 	{
-		addJS ('js/racktables.js');
+		addJSInternal ('js/racktables.js');
 		printOpFormIntro ('resolve8021QConflicts', array ('mutex_rev' => $vswitch['mutex_rev']));
 		foreach (array ('left', 'asis', 'right') as $pos)
 			echo "<th class=tdcenter><input type=radio name=column_radio value=${pos} " .
@@ -1528,7 +1525,7 @@ function renderVSTRulesEditor ($vst_id)
 		foreach (listCells ('vst') as $vst_id => $vst_info)
 			if ($vst_info['rulec'])
 				$source_options[$vst_id] = '(' . $vst_info['rulec'] . ') ' . $vst_info['description'];
-	addJS ('js/vst_editor.js');
+	addJSInternal ('js/vst_editor.js');
 	echo '<center><h1>' . stringForLabel ($vst['description']) . '</h1></center>';
 	if (count ($source_options))
 	{
@@ -1548,20 +1545,20 @@ function renderVSTRulesEditor ($vst_id)
 	echo "</td></tr>";
 	echo '<tr><th></th><th>sequence</th><th>regexp</th><th>role</th>';
 	echo '<th>VLAN IDs</th><th>comment</th><th><a href="#" class="vst-add-rule initial">' . getImageHREF ('add', 'Add rule') . '</a></th></tr>';
-	$row_html  = '<td><a href="#" class="vst-del-rule">' . getImageHREF ('destroy', 'delete rule') . '</a></td>';
+	$row_html = '<td><a href="#" class="vst-del-rule">' . getImageHREF ('destroy', 'delete rule') . '</a></td>';
 	$row_html .= '<td><input type=text name=rule_no value="%s" size=3></td>';
 	$row_html .= '<td><input type=text name=port_pcre value="%s"></td>';
 	$row_html .= '<td>%s</td>';
 	$row_html .= '<td><input type=text name=wrt_vlans value="%s"></td>';
 	$row_html .= '<td><input type=text name=description value="%s"></td>';
 	$row_html .= '<td><a href="#" class="vst-add-rule">' . getImageHREF ('add', 'Duplicate rule') . '</a></td>';
-	addJS ("var new_vst_row = '" . addslashes (sprintf ($row_html, '', '', getSelect ($port_role_options, array ('name' => 'port_role'), 'anymode'), '', '')) . "';", TRUE);
+	addJSText ("var new_vst_row = '" . addslashes (sprintf ($row_html, '', '', getSelect ($port_role_options, array ('name' => 'port_role'), 'anymode'), '', '')) . "';");
 	startSession();
 	foreach (array_fetch ($_SESSION, 'vst_edited', $vst['rules']) as $item)
 		printf ('<tr>' . $row_html . '</tr>', $item['rule_no'], htmlspecialchars ($item['port_pcre'], ENT_QUOTES),  getSelect ($port_role_options, array ('name' => 'port_role'), $item['port_role']), $item['wrt_vlans'], $item['description']);
 	echo '</table>';
 	echo '<input type=hidden name="template_json">';
-	echo '<center>' . getImageHref ('SAVE', 'Save template', TRUE) . '</center>';
+	echo '<center>' . getImageHREF ('SAVE', 'Save template', TRUE) . '</center>';
 	echo '</form>';
 	if (isset ($_SESSION['vst_edited']))
 	{
