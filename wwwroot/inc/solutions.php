@@ -244,7 +244,7 @@ function printRackThumbImage ($rack_id, $scale = 1, $object_id = NULL)
 		'U' => colorFromHex ($img, 'bf8f8f'),
 		'T' => colorFromHex ($img, '408080'),
 		'Th' => colorFromHex ($img, '80ffff'),
-		'Tw' => colorFromHex ($img, '804040'),
+		'Tw' => colorFromHex ($img, 'f00'),
 		'Thw' => colorFromHex ($img, 'ff8080'),
 		'black' => colorFromHex ($img, '000000'),
 	);
